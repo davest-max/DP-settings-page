@@ -1,0 +1,10 @@
+{
+  "name": "panel-open-in-browser-setting",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "storybook": "storybook dev -p 6007",
+    "dev": "vite"
+  }
+}
