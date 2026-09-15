@@ -136,26 +136,46 @@ const GOVERNANCE_OPTIONS: SelectOption[] = [
   { value: "locked", label: "Visible — Locked" },
 ];
 
-function GovernanceIcon({ governance }: { governance: Governance }) {
+/* ── Same 3 states minus "Hidden" — for rows that already have their own
+ * dedicated Component Used switch (see GovernanceRow's `componentControl`).
+ * Once a separate switch removes the component from Agent Workspace
+ * entirely, "Hidden" here would just be a second way to do the same
+ * thing — redundant, so it's not offered. Agent Access on those rows is
+ * only ever deciding editable-vs-locked for a component that's present. ── */
+const GOVERNANCE_OPTIONS_NO_HIDDEN: SelectOption[] = [
+  { value: "editable", label: "Visible — Agent Can Edit" },
+  { value: "locked", label: "Visible — Locked" },
+];
+
+function GovernanceIcon({ governance, muted }: { governance: Governance; muted?: boolean }) {
+  const cls = cn(
+    "h-3.5 w-3.5 flex-shrink-0",
+    muted ? "text-lyra-fg-disabled" : "text-lyra-fg-secondary"
+  );
   if (governance === "hidden") {
-    return <EyeOff className="h-3.5 w-3.5 flex-shrink-0 text-lyra-fg-secondary" strokeWidth={1.75} aria-hidden="true" />;
+    return <EyeOff className={cls} strokeWidth={1.75} aria-hidden="true" />;
   }
   if (governance === "locked") {
-    return <Lock className="h-3.5 w-3.5 flex-shrink-0 text-lyra-fg-secondary" strokeWidth={1.75} aria-hidden="true" />;
+    return <Lock className={cls} strokeWidth={1.75} aria-hidden="true" />;
   }
-  return <Eye className="h-3.5 w-3.5 flex-shrink-0 text-lyra-fg-secondary" strokeWidth={1.75} aria-hidden="true" />;
+  return <Eye className={cls} strokeWidth={1.75} aria-hidden="true" />;
 }
 
-/* ── Table header row — labels the setting-value column and the single
- * governance column every row has beyond the setting's own name. ── */
+/* ── Table header row. "Component Used" only applies to a handful of
+ * rows (see GovernanceRow's `componentUsedControl`) but stays in every
+ * row's column grid — even where blank — so the 4 columns line up down
+ * the whole table. ── */
 function GovernanceTableHeader() {
   return (
     <div className="flex items-center gap-4 border-b border-lyra-border-subtle bg-lyra-bg-surface-container-subtle px-4 py-2">
       <span className="w-[200px] flex-shrink-0 text-[11px] font-semibold uppercase tracking-wide text-lyra-fg-secondary">
         Setting
       </span>
-      <span className="w-[260px] flex-shrink-0 text-[11px] font-semibold uppercase tracking-wide text-lyra-fg-secondary">
+      <span className="w-[240px] flex-shrink-0 text-[11px] font-semibold uppercase tracking-wide text-lyra-fg-secondary">
         Default Value
+      </span>
+      <span className="w-[130px] flex-shrink-0 text-[11px] font-semibold uppercase tracking-wide text-lyra-fg-secondary">
+        Component Used
       </span>
       <span className="w-[240px] flex-shrink-0 text-[11px] font-semibold uppercase tracking-wide text-lyra-fg-secondary">
         Agent Access
@@ -164,33 +184,57 @@ function GovernanceTableHeader() {
   );
 }
 
-/* ── One governed setting: name, its own value control, then the single
- * 3-state Agent Access control (replaces the earlier separate Visible /
- * Can Edit switches — see file header note). ── */
+/* ── One governed setting: name, then up to 3 controls.
+ *
+ * `children` sits in the standard "Default Value" column every row has.
+ * For most rows that's an ordinary preference default (24 Hour Time,
+ * Send with Enter) with Agent Access as a fully independent axis —
+ * whether the agent can see or edit that preference's control. But for
+ * "Panel Open in Browser" specifically, Default Value IS the show/hide:
+ * whether the feature exists in Agent Workspace at all.
+ *
+ * `componentUsedControl` is the narrower case those rows add: a 2nd
+ * control, "Component Used", for the behavior's own on/off default once
+ * it *is* present — i.e. what the agent will actually see reflected in
+ * their Agent Workspace app. Omitting it (every other row) renders a
+ * blank spacer so the 4 columns still line up.
+ *
+ * Once a row's Default Value already means show/hide, "Hidden" in Agent
+ * Access is redundant — so those rows should be passed
+ * `governanceOptions={GOVERNANCE_OPTIONS_NO_HIDDEN}` and
+ * `governanceDisabled` tied to that switch's off state. */
 function GovernanceRow({
   label,
   children,
+  componentUsedControl,
   governance,
   onGovernanceChange,
+  governanceOptions = GOVERNANCE_OPTIONS,
+  governanceDisabled,
 }: {
   label: string;
-  children: React.ReactNode;
+  children?: React.ReactNode;
+  componentUsedControl?: React.ReactNode;
   governance: Governance;
   onGovernanceChange: (v: Governance) => void;
+  governanceOptions?: SelectOption[];
+  governanceDisabled?: boolean;
 }) {
   return (
     <div className="flex items-center gap-4 border-t border-lyra-border-subtle px-4 py-3 first:border-t-0">
       <span className="w-[200px] flex-shrink-0 text-[14px] font-bold leading-5 text-lyra-fg-default">
         {label}
       </span>
-      <div className="flex w-[260px] flex-shrink-0 items-center">{children}</div>
+      <div className="flex w-[240px] flex-shrink-0 items-center">{children}</div>
+      <div className="flex w-[130px] flex-shrink-0 items-center">{componentUsedControl}</div>
       <div className="flex w-[240px] flex-shrink-0 items-center gap-2">
-        <GovernanceIcon governance={governance} />
+        <GovernanceIcon governance={governance} muted={governanceDisabled} />
         <Select
-          options={GOVERNANCE_OPTIONS}
+          options={governanceOptions}
           value={governance}
           onValueChange={(v) => onGovernanceChange(v as Governance)}
           className="w-full"
+          disabled={governanceDisabled}
           aria-label={`${label} — agent access`}
         />
       </div>
@@ -229,14 +273,15 @@ export function LoginVoicePreferencesTab() {
   const [micNoiseCancel, setMicNoiseCancel] = useState(true);
   const [micNoiseCancelGov, setMicNoiseCancelGov] = useState<Governance>("editable");
   const [micSensitivity, setMicSensitivity] = useState(60);
-  const [micSensitivityGov, setMicSensitivityGov] = useState<Governance>("editable");
 
   const [speakerNoiseCancel, setSpeakerNoiseCancel] = useState(true);
   const [speakerNoiseCancelGov, setSpeakerNoiseCancelGov] = useState<Governance>("editable");
   const [speakerSensitivity, setSpeakerSensitivity] = useState(55);
-  const [speakerSensitivityGov, setSpeakerSensitivityGov] = useState<Governance>("editable");
 
-  const [jabra, setJabra] = useState(true);
+  /* Jabra Call Control isn't a toggle in the real app (cxagent.nicecxone.com)
+   * — it's an "Add Devices" button plus a Selected Devices picker, no on/off
+   * value at all. So there's no Default Value or Component Used control to
+   * show here; it's governed by Agent Access alone. */
   const [jabraGov, setJabraGov] = useState<Governance>("editable");
 
   return (
@@ -275,33 +320,53 @@ export function LoginVoicePreferencesTab() {
           className="w-[180px]"
         />
       </GovernanceRow>
+      {/* Merged with its Sensitivity slider — the real app shows the slider
+       * directly beneath this toggle and grays it out when off (verified
+       * live), the same dependent shape as Audio Notifications' Tone
+       * select. Hidden stays a valid Agent Access state here: turning
+       * Noise Cancellation off is just a preference value, not removing
+       * the control the way Panel Open in Browser's Default Value does. */}
       <GovernanceRow
         label="Microphone Noise Cancellation"
         governance={micNoiseCancelGov}
         onGovernanceChange={setMicNoiseCancelGov}
+        componentUsedControl={
+          <Slider
+            value={micSensitivity}
+            onChange={setMicSensitivity}
+            min={0}
+            max={100}
+            className="w-[100px]"
+            disabled={!micNoiseCancel}
+            aria-label="Mic Sensitivity"
+          />
+        }
       >
         <Switch size="sm" checked={micNoiseCancel} onCheckedChange={setMicNoiseCancel} aria-label="Microphone Noise Cancellation" />
-      </GovernanceRow>
-      <GovernanceRow label="Mic Sensitivity" governance={micSensitivityGov} onGovernanceChange={setMicSensitivityGov}>
-        <Slider value={micSensitivity} onChange={setMicSensitivity} min={0} max={100} className="w-[200px]" />
       </GovernanceRow>
       <GovernanceRow
         label="Speaker Noise Cancellation"
         governance={speakerNoiseCancelGov}
         onGovernanceChange={setSpeakerNoiseCancelGov}
+        componentUsedControl={
+          <Slider
+            value={speakerSensitivity}
+            onChange={setSpeakerSensitivity}
+            min={0}
+            max={100}
+            className="w-[100px]"
+            disabled={!speakerNoiseCancel}
+            aria-label="Speaker Sensitivity"
+          />
+        }
       >
         <Switch size="sm" checked={speakerNoiseCancel} onCheckedChange={setSpeakerNoiseCancel} aria-label="Speaker Noise Cancellation" />
       </GovernanceRow>
-      <GovernanceRow
-        label="Speaker Sensitivity"
-        governance={speakerSensitivityGov}
-        onGovernanceChange={setSpeakerSensitivityGov}
-      >
-        <Slider value={speakerSensitivity} onChange={setSpeakerSensitivity} min={0} max={100} className="w-[200px]" />
-      </GovernanceRow>
-      {/* Simplified — see file header note on Jabra Call Control */}
+      {/* No Default Value or Component Used control — see state comment above. */}
       <GovernanceRow label="Jabra Call Control" governance={jabraGov} onGovernanceChange={setJabraGov}>
-        <Switch size="sm" checked={jabra} onCheckedChange={setJabra} aria-label="Jabra Call Control" />
+        <span className="lyra-body-sm text-lyra-fg-secondary">
+          Managed via Add Devices — no single on/off value
+        </span>
       </GovernanceRow>
     </div>
   );
@@ -356,22 +421,23 @@ export function AVNotificationsTab() {
           label={evt.label}
           governance={audioGov[evt.key]}
           onGovernanceChange={(v) => setAudioGov((p) => ({ ...p, [evt.key]: v }))}
-        >
-          <div className="flex items-center gap-3">
-            <Switch
-              size="sm"
-              checked={audioOn[evt.key]}
-              onCheckedChange={(v) => setAudioOn((p) => ({ ...p, [evt.key]: v }))}
-              aria-label={`${evt.label} audio`}
-            />
+          componentUsedControl={
             <Select
               options={TONE_OPTIONS}
               value={audioTone[evt.key]}
               onValueChange={(v) => setAudioTone((p) => ({ ...p, [evt.key]: v }))}
-              className="w-[140px]"
+              className="w-full"
               disabled={!audioOn[evt.key]}
+              aria-label={`${evt.label} tone`}
             />
-          </div>
+          }
+        >
+          <Switch
+            size="sm"
+            checked={audioOn[evt.key]}
+            onCheckedChange={(v) => setAudioOn((p) => ({ ...p, [evt.key]: v }))}
+            aria-label={`${evt.label} audio`}
+          />
         </GovernanceRow>
       ))}
       <SubGroupLabel>Visual Notifications</SubGroupLabel>
@@ -399,9 +465,11 @@ export function DisplayKeyboardTab() {
   const [twentyFourHour, setTwentyFourHour] = useState(false);
   const [twentyFourHourGov, setTwentyFourHourGov] = useState<Governance>("editable");
 
+  const [panelGeneralUsed, setPanelGeneralUsed] = useState(true);
   const [panelGeneral, setPanelGeneral] = useState(false);
   const [panelGeneralGov, setPanelGeneralGov] = useState<Governance>("editable");
 
+  const [panelPageActionUsed, setPanelPageActionUsed] = useState(true);
   const [panelPageAction, setPanelPageAction] = useState(true);
   const [panelPageActionGov, setPanelPageActionGov] = useState<Governance>("editable");
 
@@ -415,22 +483,60 @@ export function DisplayKeyboardTab() {
     <>
       <div className="rounded-b-lyra-sm border border-lyra-border-subtle">
         <GovernanceTableHeader />
-        <GovernanceRow label="24 Hour Time" governance={twentyFourHourGov} onGovernanceChange={setTwentyFourHourGov}>
-          <Switch size="sm" checked={twentyFourHour} onCheckedChange={setTwentyFourHour} aria-label="24 Hour Time" />
-        </GovernanceRow>
+        <SubGroupLabel>Feature Visibility</SubGroupLabel>
         <GovernanceRow
           label="Panel Open in Browser: General"
           governance={panelGeneralGov}
           onGovernanceChange={setPanelGeneralGov}
+          governanceOptions={GOVERNANCE_OPTIONS_NO_HIDDEN}
+          governanceDisabled={!panelGeneralUsed}
+          componentUsedControl={
+            <div style={{ filter: "grayscale(1)" }} title="Component Used — the behavior's own on/off default once the feature is present">
+              <Switch
+                size="sm"
+                checked={panelGeneral}
+                onCheckedChange={setPanelGeneral}
+                disabled={!panelGeneralUsed}
+                aria-label="Panel Open in Browser: General — Component Used (what the agent sees in Agent Workspace)"
+              />
+            </div>
+          }
         >
-          <Switch size="sm" checked={panelGeneral} onCheckedChange={setPanelGeneral} aria-label="Panel Open in Browser: General" />
+          <Switch
+            size="sm"
+            checked={panelGeneralUsed}
+            onCheckedChange={setPanelGeneralUsed}
+            aria-label="Panel Open in Browser: General — Default Value (show/hide)"
+          />
         </GovernanceRow>
         <GovernanceRow
           label="Panel Open in Browser: Page Action Only"
           governance={panelPageActionGov}
           onGovernanceChange={setPanelPageActionGov}
+          governanceOptions={GOVERNANCE_OPTIONS_NO_HIDDEN}
+          governanceDisabled={!panelPageActionUsed}
+          componentUsedControl={
+            <div style={{ filter: "grayscale(1)" }} title="Component Used — the behavior's own on/off default once the feature is present">
+              <Switch
+                size="sm"
+                checked={panelPageAction}
+                onCheckedChange={setPanelPageAction}
+                disabled={!panelPageActionUsed}
+                aria-label="Panel Open in Browser: Page Action Only — Component Used (what the agent sees in Agent Workspace)"
+              />
+            </div>
+          }
         >
-          <Switch size="sm" checked={panelPageAction} onCheckedChange={setPanelPageAction} aria-label="Panel Open in Browser: Page Action Only" />
+          <Switch
+            size="sm"
+            checked={panelPageActionUsed}
+            onCheckedChange={setPanelPageActionUsed}
+            aria-label="Panel Open in Browser: Page Action Only — Default Value (show/hide)"
+          />
+        </GovernanceRow>
+        <SubGroupLabel>Preferences</SubGroupLabel>
+        <GovernanceRow label="24 Hour Time" governance={twentyFourHourGov} onGovernanceChange={setTwentyFourHourGov}>
+          <Switch size="sm" checked={twentyFourHour} onCheckedChange={setTwentyFourHour} aria-label="24 Hour Time" />
         </GovernanceRow>
         <GovernanceRow label="Email Message Sort Order" governance={sortOrderGov} onGovernanceChange={setSortOrderGov}>
           <Select options={SORT_ORDER_OPTIONS} value={sortOrder} onValueChange={setSortOrder} className="w-[220px]" />
