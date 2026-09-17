@@ -1,10 +1,8 @@
 import * as React from "react";
-import { useState } from "react";
-import { CircleHelp, LayoutGrid, Bell, Box } from "lucide-react";
+import { useState, useRef, useEffect } from "react";
+import { Box, CheckCircle2, MinusCircle, Trash2, X } from "lucide-react";
 import {
   cn,
-  AppHeader,
-  AppName,
   AdminShell,
   Button,
   Input,
@@ -13,10 +11,11 @@ import {
   TabPanel,
   Switch,
   Select,
-  ActionIconButton,
-  ProfileMenu,
-  CXoneSmiley,
-  defaultProfileMenuGroups,
+  Checkbox,
+  SearchInput,
+  ContentArea,
+  AiIcon,
+  Chip,
   type SelectOption,
   type TreeMenuItem,
 } from "../lyra-ui/src";
@@ -26,13 +25,26 @@ import {
   AVNotificationsTab,
   DisplayKeyboardTab,
 } from "./settings-page-tile";
+import { AppShellHeader } from "./app-header";
 
-/* ── Sample data — matches the "Create Desktop Profile" Figma frame ── */
+/* ── Sample data — matches the "Create Desktop Profile" Figma frame,
+ * reconciled against the real production page at
+ * na1.nice-incontact.com/apps/#/desktop-profiles/profiles/create for the
+ * "product demo reference" build (see `DesktopProfilesDemo`): the
+ * Conversations app toggle, the Skills Directory App option and singular
+ * "Standard Address Book" label, and the "Defined by agent" default
+ * screen size were all added to match what that page actually ships. ── */
+
+/* Keys for the 3 rows flagged in the "agent-drafted profile" preview —
+ * see `aiDraftPreview` in `CreateDesktopProfilePage`. Exported so a
+ * caller (e.g. `ReviewQueuePage`, via `DesktopProfilesDemo`) can deep-link
+ * straight to one of these flagged rows via `initialFocusItem`. */
+export type ReviewItemKey = "queue-counter" | "outbound-calling" | "directory-app";
 
 const NAV_ITEMS: TreeMenuItem[] = [
   { icon: <Box className="h-4 w-4" strokeWidth={1.5} />, label: "Desktop Profiles", active: true },
+  { icon: <Box className="h-4 w-4" strokeWidth={1.5} />, label: "Configurations" },
   { icon: <Box className="h-4 w-4" strokeWidth={1.5} />, label: "ACS Onboarding" },
-  { icon: <Box className="h-4 w-4" strokeWidth={1.5} />, label: "CRM Integrations" },
 ];
 
 const AGENT_VERSION_OPTIONS: SelectOption[] = [
@@ -41,6 +53,7 @@ const AGENT_VERSION_OPTIONS: SelectOption[] = [
 ];
 
 const SCREEN_SIZE_OPTIONS: SelectOption[] = [
+  { value: "defined-by-agent", label: "Defined by agent" },
   { value: "full-screen", label: "Full Screen" },
   { value: "windowed", label: "Windowed" },
 ];
@@ -61,8 +74,9 @@ const DIRECTORY_APP_OPTIONS: ToggleChipOption[] = [
   { value: "all", label: "All" },
   { value: "favorites", label: "Favorites" },
   { value: "agents", label: "Agents" },
+  { value: "skills", label: "Skills" },
   { value: "teams", label: "Teams" },
-  { value: "standard-address-books", label: "Standard Address Books" },
+  { value: "standard-address-book", label: "Standard Address Book" },
 ];
 
 const OUTBOUND_CALLING_OPTIONS: ToggleChipOption[] = [
@@ -90,27 +104,40 @@ const APPS: AppToggleDef[] = [
   { key: "launch", label: "Launch" },
   { key: "custom-workspace", label: "Custom Workspace" },
   { key: "reporting", label: "Reporting" },
+  { key: "conversations", label: "Conversations" },
 ];
 
-/* ── Page chrome (AppHeader + AdminShell) ──
- * In a real consuming app this outer chrome is supplied once (see
- * lyra-ui's own AdminShell.stories.tsx `AdminShellDemo`) and shared across
- * every page — reproduced here only so this preview matches the full
- * Figma frame, chrome included. */
-const HEADER_ACTIONS = (
-  <>
-    <ActionIconButton size="xl" title="Help">
-      <CircleHelp className="h-5 w-5" strokeWidth={1.5} />
-    </ActionIconButton>
-    <ActionIconButton size="xl" title="Apps">
-      <LayoutGrid className="h-5 w-5" strokeWidth={1.5} />
-    </ActionIconButton>
-    <ActionIconButton size="xl" title="Notifications" badge={5}>
-      <Bell className="h-5 w-5" strokeWidth={1.5} />
-    </ActionIconButton>
-    <ProfileMenu initials="JS" avatarColor="#5d6a79" groups={defaultProfileMenuGroups} className="ml-1" />
-  </>
-);
+/* ── Assigned Teams — sample directory of real-looking teams (names
+ * mirror the actual production "Add Team" picker), plus one standing in
+ * for the new-hire cohort this whole demo is about. Assignment only
+ * becomes possible once a profile exists (mode === "edit"), matching the
+ * real app: the Create page has no Assigned Teams tab at all. ── */
+interface TeamRow {
+  id: string;
+  name: string;
+  assignedUsers: number;
+  status: "active" | "inactive";
+}
+
+export const AVAILABLE_TEAMS: TeamRow[] = [
+  { id: "auto-attendant", name: "Auto Attendant", assignedUsers: 0, status: "active" },
+  { id: "cxone-agent-team", name: "CXone Agent Team", assignedUsers: 13, status: "active" },
+  { id: "default-team", name: "DefaultTeam", assignedUsers: 85, status: "active" },
+  { id: "others-team", name: "Others Team", assignedUsers: 1, status: "active" },
+  { id: "sfa-team", name: "SFA Team", assignedUsers: 8, status: "active" },
+  { id: "test-cxa-team", name: "Test CXA team", assignedUsers: 0, status: "active" },
+  { id: "ppe-agent-team", name: "PPE - Agent", assignedUsers: 5, status: "active" },
+  { id: "new-hire-training-team", name: "New Hire Training Team", assignedUsers: 12, status: "active" },
+];
+
+/* ── Page chrome ──
+ * Outer shell (AppShellHeader) migrated from the `lyra-ux-templates-main`
+ * reference app — see app-header.tsx for the source pattern. The left
+ * icon rail (AppShellSidebar / app-sidebar.tsx) from that same template
+ * was tried here too but removed — it's not relevant for this build,
+ * since AdminShell's own inner tree already covers navigation for this
+ * app. In a real consuming app this header chrome is supplied once and
+ * shared across every page. */
 
 /* ── A section header bar ("Apps" / "Additional Settings") ── */
 function SectionHeader({ children }: { children: React.ReactNode }) {
@@ -127,39 +154,249 @@ function SectionHeader({ children }: { children: React.ReactNode }) {
  * control (switch, select, chip group) starts in the exact same column —
  * the label cell is a fixed width and the control cell always begins
  * right after it, regardless of section.
+ *
+ * `reviewBadge` and `highlighted` are optional, used only by the
+ * "agent-drafted profile" preview (see `ReviewBadge` / `aiDraftPreview`
+ * below) to flag the handful of rows an AI agent drafting this profile
+ * couldn't confidently set alone. Forwards its ref so that preview can
+ * scroll a flagged row into view from the summary banner's jump links.
  */
-function SettingsFieldRow({
-  label,
-  children,
-  align = "center",
-}: {
-  label: string;
-  children: React.ReactNode;
-  align?: "center" | "start";
-}) {
+const SettingsFieldRow = React.forwardRef<
+  HTMLDivElement,
+  {
+    label: string;
+    children: React.ReactNode;
+    align?: "center" | "start";
+    reviewBadge?: React.ReactNode;
+    highlighted?: boolean;
+  }
+>(({ label, children, align = "center", reviewBadge, highlighted }, ref) => {
   return (
     <div
+      ref={ref}
       className={cn(
         "flex gap-6 border-t border-lyra-border-subtle px-4 py-3 first:border-t-0",
-        align === "center" ? "items-center" : "items-start"
+        align === "center" ? "items-center" : "items-start",
+        highlighted && "bg-lyra-bg-active-subtle ring-1 ring-inset ring-lyra-border-active"
       )}
     >
-      <span className="w-[220px] flex-shrink-0 text-[14px] font-bold leading-5 text-lyra-fg-default">
+      <span className="flex w-[220px] flex-shrink-0 items-center gap-2 text-[14px] font-bold leading-5 text-lyra-fg-default">
         {label}
+        {reviewBadge}
       </span>
       <div className="flex flex-1 items-center">{children}</div>
     </div>
   );
+});
+SettingsFieldRow.displayName = "SettingsFieldRow";
+
+/* ── Small "needs review" flag for a row an AI agent drafted but
+ * couldn't confidently finish alone — see the `aiDraftPreview` toggle in
+ * `CreateDesktopProfilePage` below. `title` carries the specific reason,
+ * shown on hover, so the badge means something more than just "unsure." */
+function ReviewBadge({ note }: { note: string }) {
+  return (
+    <span title={note}>
+      <Chip
+        color="orange"
+        variant="subtle"
+        className="px-1.5 py-0 text-[10px] font-semibold uppercase leading-4 tracking-wide"
+      >
+        Needs review
+      </Chip>
+    </span>
+  );
 }
 
-export function CreateDesktopProfilePage() {
-  const [tab, setTab] = useState<"settings" | "teams" | "settings-page">("settings");
+/* ── Small Active/Inactive status cell, shared by the Assigned Teams
+ * table here and by DesktopProfilesListPage — mirrors the real app's
+ * green-check / gray-dash treatment. ── */
+function StatusCell({ status }: { status: "active" | "inactive" }) {
+  return status === "active" ? (
+    <span className="inline-flex items-center gap-1.5 text-lyra-fg-default">
+      <CheckCircle2 className="h-4 w-4 text-lyra-status-success-strong" strokeWidth={1.5} />
+      Active
+    </span>
+  ) : (
+    <span className="inline-flex items-center gap-1.5 text-lyra-fg-secondary">
+      <MinusCircle className="h-4 w-4 text-lyra-fg-disabled" strokeWidth={1.5} />
+      Inactive
+    </span>
+  );
+}
+
+/* ── "Add Team" modal — mirrors the real production picker: searchable
+ * list of teams, multi-select via checkbox, Cancel/Confirm. The New Hire
+ * Training Team row is highlighted since it's the one this demo's story
+ * is about ("an admin has uploaded a group of new hires..."). ── */
+function AddTeamModal({
+  open,
+  excludeIds,
+  onCancel,
+  onConfirm,
+}: {
+  open: boolean;
+  excludeIds: string[];
+  onCancel: () => void;
+  onConfirm: (ids: string[]) => void;
+}) {
+  const [search, setSearch] = useState("");
+  const [selected, setSelected] = useState<string[]>([]);
+
+  useEffect(() => {
+    if (open) {
+      setSearch("");
+      setSelected([]);
+    }
+  }, [open]);
+
+  if (!open) return null;
+
+  const candidates = AVAILABLE_TEAMS.filter(
+    (t) => !excludeIds.includes(t.id) && t.name.toLowerCase().includes(search.toLowerCase())
+  );
+
+  function toggle(id: string) {
+    setSelected((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
+  }
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40"
+      onClick={onCancel}
+    >
+      <div
+        className="flex max-h-[80vh] w-[640px] flex-col rounded-lyra-lg border border-lyra-border-subtle bg-lyra-bg-surface-overlay shadow-xl"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-center justify-between border-b border-lyra-border-subtle px-5 py-4">
+          <span className="text-[16px] font-bold leading-6 text-lyra-fg-default">Add Team</span>
+          <button
+            onClick={onCancel}
+            aria-label="Close"
+            className="flex h-6 w-6 items-center justify-center rounded-lyra-xs text-lyra-fg-secondary hover:text-lyra-fg-default"
+          >
+            <X className="h-4 w-4" strokeWidth={1.5} />
+          </button>
+        </div>
+        <div className="flex items-center gap-3 border-b border-lyra-border-subtle px-5 py-3">
+          <span className="lyra-body-sm text-lyra-fg-secondary">{candidates.length} Teams</span>
+          <span className="lyra-body-sm text-lyra-fg-secondary">·</span>
+          <span className="lyra-body-sm text-lyra-fg-secondary">{selected.length} Selected</span>
+          <SearchInput
+            aria-label="Search for Teams"
+            placeholder="Search for Teams"
+            value={search}
+            onValueChange={setSearch}
+            className="ml-auto w-[220px]"
+          />
+        </div>
+        <div className="flex-1 overflow-y-auto">
+          <div className="lyra-label flex gap-4 border-b border-lyra-border-subtle bg-lyra-bg-surface-container-subtle px-5 py-2 text-lyra-fg-secondary">
+            <span className="w-5" />
+            <span className="flex-1">Name</span>
+            <span className="w-[120px]">Assigned Users</span>
+          </div>
+          {candidates.map((t) => {
+            const isNewHireTeam = t.id === "new-hire-training-team";
+            return (
+              <label
+                key={t.id}
+                className={cn(
+                  "flex cursor-pointer items-center gap-4 border-b border-lyra-border-subtle px-5 py-2.5 last:border-b-0 hover:bg-lyra-state-hover",
+                  isNewHireTeam && "bg-lyra-bg-active-subtle"
+                )}
+              >
+                <Checkbox checked={selected.includes(t.id)} onCheckedChange={() => toggle(t.id)} />
+                <span className="flex flex-1 items-center gap-2 text-[14px] text-lyra-fg-default">
+                  {t.name}
+                  {isNewHireTeam && (
+                    <Chip
+                      color="orange"
+                      variant="subtle"
+                      className="px-1.5 py-0 text-[10px] font-semibold uppercase leading-4 tracking-wide"
+                    >
+                      Uploaded this week
+                    </Chip>
+                  )}
+                </span>
+                <span className="w-[120px] text-[14px] text-lyra-fg-default">{t.assignedUsers}</span>
+              </label>
+            );
+          })}
+          {candidates.length === 0 && (
+            <div className="px-5 py-8 text-center text-[14px] text-lyra-fg-secondary">
+              No teams match your search.
+            </div>
+          )}
+        </div>
+        <div className="flex justify-end gap-2 border-t border-lyra-border-subtle px-5 py-4">
+          <Button variant="outline" onClick={onCancel}>
+            Cancel
+          </Button>
+          <Button disabled={selected.length === 0} onClick={() => onConfirm(selected)}>
+            Confirm
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+interface CreateDesktopProfilePageProps {
+  /**
+   * "create" (default) mirrors the real Create page: no Assigned Teams
+   * tab yet (a profile can't have teams before it exists), and the page
+   * actions are the AI-draft toggle + Cancel/Create. "edit" mirrors the
+   * real Update page reached from the list: Assigned Teams becomes
+   * available, and page actions are just Cancel/Save.
+   */
+  mode?: "create" | "edit";
+  /** Assigned team ids to seed an "edit" instance with. */
+  initialAssignedTeamIds?: string[];
+  onCreate?: (profile: { name: string; description: string }) => void;
+  onCancel?: () => void;
+  onSave?: () => void;
+  /** Fires whenever the assigned-teams set changes, so a parent list view can keep its "Assigned Teams" count in sync. */
+  onTeamsChange?: (teamIds: string[]) => void;
+  /** Overrides the left nav tree — lets a caller (e.g. `DesktopProfilesDemo`) inject shared, wired-up nav items instead of this file's static default. */
+  navItems?: TreeMenuItem[];
+  /** Which outer tab to land on — used to deep-link here (e.g. from the Review Queue) straight to a specific surface instead of always starting on Settings. */
+  initialTab?: "settings" | "teams" | "settings-page";
+  /** Which Agent Settings Page inner tab to land on, when `initialTab` is "settings-page". */
+  initialSettingsPageInnerTab?: "login-voice" | "av-notifications" | "display-keyboard";
+  /** Scrolls to and highlights one of the 3 AI-flagged rows on mount — the same jump the in-page review banner's chips perform, reachable from outside the page (e.g. the Review Queue). Only meaningful in "create" mode, where those rows exist. */
+  initialFocusItem?: ReviewItemKey;
+  /** Opens the docked AI Assistant panel (owned by `DesktopProfilesDemo`, shared across every screen) — renders an "Ask AI" page action when provided. */
+  onOpenAssistant?: () => void;
+}
+
+export function CreateDesktopProfilePage({
+  mode = "create",
+  initialAssignedTeamIds = [],
+  onCreate,
+  onCancel,
+  onSave,
+  onTeamsChange,
+  navItems = NAV_ITEMS,
+  initialTab = "settings",
+  initialSettingsPageInnerTab = "login-voice",
+  initialFocusItem,
+  onOpenAssistant,
+}: CreateDesktopProfilePageProps) {
+  const [tab, setTab] = useState<"settings" | "teams" | "settings-page">(initialTab);
   const [settingsPageInnerTab, setSettingsPageInnerTab] = useState<
     "login-voice" | "av-notifications" | "display-keyboard"
-  >("av-notifications");
+  >(initialSettingsPageInnerTab);
 
-  const [profileName, setProfileName] = useState("");
-  const [description, setDescription] = useState("");
+  /* Defaults reflect this build's one demo scenario — an AI agent
+   * drafting a profile for a newly-uploaded new-hire cohort (see
+   * `DesktopProfilesDemo`) — rather than a blank form, since that's what
+   * this page now exists to preview. */
+  const [profileName, setProfileName] = useState("New Employee Training");
+  const [description, setDescription] = useState(
+    "Onboarding profile for the new-hire training cohort uploaded to Team Management this week."
+  );
 
   const [apps, setApps] = useState<Record<string, boolean>>({
     search: true,
@@ -170,10 +407,11 @@ export function CreateDesktopProfilePage() {
     launch: true,
     "custom-workspace": false,
     reporting: true,
+    conversations: true,
   });
 
   const [agentVersion, setAgentVersion] = useState("current");
-  const [screenSize, setScreenSize] = useState("full-screen");
+  const [screenSize, setScreenSize] = useState("defined-by-agent");
   const [directoryApp, setDirectoryApp] = useState<string[]>([
     "search",
     "favorites",
@@ -188,6 +426,7 @@ export function CreateDesktopProfilePage() {
   ]);
   const [closedContactConfirmation, setClosedContactConfirmation] = useState(true);
   const [showCallerPhoneNumber, setShowCallerPhoneNumber] = useState(true);
+  const [unassignDismissAssignments, setUnassignDismissAssignments] = useState(true);
   const [digitalContactPreview, setDigitalContactPreview] = useState("enabled-with-send");
 
   /* ── Planned — 27.1 (design direction, not yet spec'd) ──
@@ -198,38 +437,166 @@ export function CreateDesktopProfilePage() {
   const [quickBarAgentCustomization, setQuickBarAgentCustomization] = useState(true);
   const [screenPopAlwaysStealFocus, setScreenPopAlwaysStealFocus] = useState(false);
 
+  /* ── "Agent-drafted profile" preview ──
+   * A sketch of what this screen could look like after an AI agent (working
+   * from an uploaded new-hire roster elsewhere in the app) has drafted this
+   * profile itself: most fields set with high confidence, a handful flagged
+   * because they're real policy calls only a human admin should make
+   * (does this training cohort get live Queue Counter access yet, which
+   * Outbound Calling actions, how wide a Directory scope). Toggled on its
+   * own button — separate from Cancel/Create — so it's clearly a preview
+   * of a possible future state, not a real field on this page today.
+   * Defaults on for a fresh "create" instance so the reviewable draft is
+   * visible immediately, matching the demo's story; an "edit" instance
+   * (the profile already exists) never shows it. */
+  const [aiDraftPreview, setAiDraftPreview] = useState(mode === "create");
+  const [pendingReviewJump, setPendingReviewJump] = useState<ReviewItemKey | null>(initialFocusItem ?? null);
+
+  const queueCounterRowRef = useRef<HTMLDivElement>(null);
+  const outboundCallingRowRef = useRef<HTMLDivElement>(null);
+  const directoryAppRowRef = useRef<HTMLDivElement>(null);
+
+  const reviewItemRefs: Record<ReviewItemKey, React.RefObject<HTMLDivElement | null>> = {
+    "queue-counter": queueCounterRowRef,
+    "outbound-calling": outboundCallingRowRef,
+    "directory-app": directoryAppRowRef,
+  };
+
+  function jumpToReviewItem(key: ReviewItemKey) {
+    setPendingReviewJump(key);
+    setTab("settings");
+  }
+
+  // Runs after the "settings" tab has actually mounted (TabPanel unmounts
+  // inactive tabs entirely), so the target row's ref is guaranteed to
+  // exist by the time this scrolls to it — whether or not a tab switch
+  // was needed to get there.
+  useEffect(() => {
+    if (!pendingReviewJump || tab !== "settings") return;
+    reviewItemRefs[pendingReviewJump].current?.scrollIntoView({ behavior: "smooth", block: "center" });
+    setPendingReviewJump(null);
+  }, [pendingReviewJump, tab]);
+
+  /* ── Assigned Teams (edit mode only) ── */
+  const [assignedTeamIds, setAssignedTeamIds] = useState<string[]>(initialAssignedTeamIds);
+  const [teamsSearch, setTeamsSearch] = useState("");
+  const [selectedForRemoval, setSelectedForRemoval] = useState<string[]>([]);
+  const [addTeamOpen, setAddTeamOpen] = useState(false);
+
+  useEffect(() => {
+    onTeamsChange?.(assignedTeamIds);
+    // Only the ids themselves matter to a parent tracking the count.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [assignedTeamIds]);
+
+  const assignedTeams = assignedTeamIds
+    .map((id) => AVAILABLE_TEAMS.find((t) => t.id === id))
+    .filter((t): t is TeamRow => !!t)
+    .filter((t) => t.name.toLowerCase().includes(teamsSearch.toLowerCase()));
+
   return (
     <div className="flex h-screen flex-col overflow-hidden bg-lyra-bg-surface-shell">
-      <AppHeader
-        appName={<AppName name="Agent Configuration" icon={<CXoneSmiley />} />}
-        actions={HEADER_ACTIONS}
-        className="border-b border-lyra-border-subtle bg-lyra-bg-surface-base"
-      />
-      <AdminShell
-        storageKeyPrefix="create-desktop-profile-preview"
-        navTitle="Agent Configuration"
-        navItems={NAV_ITEMS}
-        defaultLeftPinned
-        showPageHeader
-        pageTitle="Create Desktop Profile"
-        pageActions={
-          <>
-            <Button variant="outline">Cancel</Button>
-            <Button>Create</Button>
-          </>
-        }
-      >
-        <div className="flex flex-1 flex-col overflow-y-auto">
-          <TabList className="px-6">
-            <Tab active={tab === "settings"} onClick={() => setTab("settings")}>
-              Settings
+      <AppShellHeader />
+      <ContentArea>
+          <AdminShell
+            storageKeyPrefix="create-desktop-profile-preview"
+            navTitle=""
+            navItems={navItems}
+            defaultLeftPinned
+            roundedContent
+            showPageHeader
+            pageTitle={mode === "edit" ? "Update Desktop Profile" : "Create Desktop Profile"}
+            pageBreadcrumb={onCancel ? { label: "Desktop Profiles", onClick: onCancel } : undefined}
+            pageActions={
+              mode === "edit" ? (
+                <>
+                  {onOpenAssistant && (
+                    <Button variant="outline" className="gap-1.5" onClick={onOpenAssistant}>
+                      <AiIcon className="h-4 w-4" />
+                      Ask AI
+                    </Button>
+                  )}
+                  <Button variant="outline" onClick={onCancel}>
+                    Cancel
+                  </Button>
+                  <Button onClick={onSave}>Save</Button>
+                </>
+              ) : (
+                <>
+                  {onOpenAssistant && (
+                    <Button variant="outline" className="gap-1.5" onClick={onOpenAssistant}>
+                      <AiIcon className="h-4 w-4" />
+                      Ask AI
+                    </Button>
+                  )}
+                  <Button
+                    variant="outline"
+                    aria-pressed={aiDraftPreview}
+                    onClick={() => setAiDraftPreview((v) => !v)}
+                    className={cn(
+                      "gap-1.5",
+                      aiDraftPreview && "border-lyra-border-active bg-lyra-bg-active-subtle text-lyra-fg-action"
+                    )}
+                  >
+                    <AiIcon className="h-4 w-4" />
+                    {aiDraftPreview ? "AI Draft Preview: On" : "Preview: AI-Drafted"}
+                  </Button>
+                  <Button variant="outline" onClick={onCancel}>
+                    Cancel
+                  </Button>
+                  <Button onClick={() => onCreate?.({ name: profileName, description })}>Create</Button>
+                </>
+              )
+            }
+          >
+            <div className="flex flex-1 flex-col overflow-y-auto">
+              {aiDraftPreview && (
+                <div className="mx-6 mt-4 flex items-start gap-3 rounded-lyra-md border border-lyra-border-active bg-lyra-bg-active-subtle px-4 py-3">
+                  <AiIcon className="mt-0.5 h-5 w-5 flex-shrink-0" />
+                  <div className="flex flex-1 flex-col gap-2">
+                    <p className="lyra-body-md-emphasis text-lyra-fg-default">
+                      Agent-drafted profile — 3 items need your review
+                    </p>
+                    <p className="lyra-body-sm max-w-[560px] text-lyra-fg-secondary">
+                      Drafted for the "New Employee Training" cohort uploaded in Team
+                      Management. Everything else was set with high confidence — these
+                      three are policy calls worth a quick look before you create it.
+                    </p>
+                    <div className="mt-1 flex flex-wrap gap-2">
+                      <button
+                        onClick={() => jumpToReviewItem("queue-counter")}
+                        className="rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-lyra-border-focus"
+                      >
+                        <Chip color="orange" variant="subtle">Queue Counter access</Chip>
+                      </button>
+                      <button
+                        onClick={() => jumpToReviewItem("outbound-calling")}
+                        className="rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-lyra-border-focus"
+                      >
+                        <Chip color="orange" variant="subtle">Outbound Calling permissions</Chip>
+                      </button>
+                      <button
+                        onClick={() => jumpToReviewItem("directory-app")}
+                        className="rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-lyra-border-focus"
+                      >
+                        <Chip color="orange" variant="subtle">Directory App scope</Chip>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+              <TabList className="px-6">
+                <Tab active={tab === "settings"} onClick={() => setTab("settings")}>
+                  Settings
             </Tab>
             <Tab active={tab === "settings-page"} onClick={() => setTab("settings-page")}>
-              Settings Page
+              Agent Settings Page
             </Tab>
-            <Tab active={tab === "teams"} onClick={() => setTab("teams")}>
-              Assigned Teams
-            </Tab>
+            {mode === "edit" && (
+              <Tab active={tab === "teams"} onClick={() => setTab("teams")}>
+                Assigned Teams
+              </Tab>
+            )}
           </TabList>
 
           <TabPanel active={tab === "settings"} className="flex flex-col gap-6 px-6 py-6">
@@ -254,16 +621,29 @@ export function CreateDesktopProfilePage() {
             <section>
               <SectionHeader>Apps</SectionHeader>
               <div className="flex flex-col rounded-b-lyra-sm border border-lyra-border-subtle">
-                {APPS.map((app) => (
-                  <SettingsFieldRow key={app.key} label={app.label}>
-                    <Switch
-                      size="sm"
-                      checked={apps[app.key]}
-                      onCheckedChange={(v) => setApps((prev) => ({ ...prev, [app.key]: v }))}
-                      aria-label={app.label}
-                    />
-                  </SettingsFieldRow>
-                ))}
+                {APPS.map((app) => {
+                  const isReviewItem = aiDraftPreview && app.key === "queue-counter";
+                  return (
+                    <SettingsFieldRow
+                      key={app.key}
+                      label={app.label}
+                      ref={isReviewItem ? queueCounterRowRef : undefined}
+                      highlighted={isReviewItem}
+                      reviewBadge={
+                        isReviewItem ? (
+                          <ReviewBadge note="Trainees may not need live Queue Counter visibility yet — confirm before enabling for this cohort." />
+                        ) : undefined
+                      }
+                    >
+                      <Switch
+                        size="sm"
+                        checked={apps[app.key]}
+                        onCheckedChange={(v) => setApps((prev) => ({ ...prev, [app.key]: v }))}
+                        aria-label={app.label}
+                      />
+                    </SettingsFieldRow>
+                  );
+                })}
               </div>
             </section>
 
@@ -287,14 +667,34 @@ export function CreateDesktopProfilePage() {
                     className="w-[220px]"
                   />
                 </SettingsFieldRow>
-                <SettingsFieldRow label="Directory App" align="start">
+                <SettingsFieldRow
+                  label="Directory App"
+                  align="start"
+                  ref={aiDraftPreview ? directoryAppRowRef : undefined}
+                  highlighted={aiDraftPreview}
+                  reviewBadge={
+                    aiDraftPreview ? (
+                      <ReviewBadge note="Narrowed to this training team by default — confirm that's the right directory scope for new hires." />
+                    ) : undefined
+                  }
+                >
                   <ToggleChipGroup
                     options={DIRECTORY_APP_OPTIONS}
                     values={directoryApp}
                     onValuesChange={setDirectoryApp}
                   />
                 </SettingsFieldRow>
-                <SettingsFieldRow label="Outbound Calling" align="start">
+                <SettingsFieldRow
+                  label="Outbound Calling"
+                  align="start"
+                  ref={aiDraftPreview ? outboundCallingRowRef : undefined}
+                  highlighted={aiDraftPreview}
+                  reviewBadge={
+                    aiDraftPreview ? (
+                      <ReviewBadge note="Trainees may not be ready for Transfer or Elevation yet — confirm which outbound actions this cohort should have." />
+                    ) : undefined
+                  }
+                >
                   <ToggleChipGroup
                     options={OUTBOUND_CALLING_OPTIONS}
                     values={outboundCalling}
@@ -315,6 +715,14 @@ export function CreateDesktopProfilePage() {
                     checked={showCallerPhoneNumber}
                     onCheckedChange={setShowCallerPhoneNumber}
                     aria-label="Show Caller Phone Number"
+                  />
+                </SettingsFieldRow>
+                <SettingsFieldRow label="Unassign & Dismiss Assignments">
+                  <Switch
+                    size="sm"
+                    checked={unassignDismissAssignments}
+                    onCheckedChange={setUnassignDismissAssignments}
+                    aria-label="Unassign & Dismiss Assignments"
                   />
                 </SettingsFieldRow>
               </div>
@@ -367,28 +775,105 @@ export function CreateDesktopProfilePage() {
             </section>
           </TabPanel>
 
-          <TabPanel active={tab === "teams"} className="px-6 py-6">
-            <p className="lyra-body-md text-lyra-fg-secondary">
-              Assigned Teams content isn&apos;t part of AW-61850 — placeholder only.
-            </p>
-          </TabPanel>
+          {mode === "edit" && (
+            <TabPanel active={tab === "teams"} className="flex flex-col gap-4 px-6 py-6">
+              <div className="flex items-center justify-between">
+                <span className="text-[16px] font-bold leading-6 text-lyra-fg-default">
+                  {assignedTeamIds.length} Teams
+                </span>
+                <div className="flex items-center gap-2">
+                  <SearchInput
+                    aria-label="Search for Teams"
+                    placeholder="Search for Teams"
+                    value={teamsSearch}
+                    onValueChange={setTeamsSearch}
+                    className="w-[220px]"
+                  />
+                  <Button
+                    variant="ghost"
+                    className="gap-1.5"
+                    disabled={selectedForRemoval.length === 0}
+                    onClick={() => {
+                      setAssignedTeamIds((prev) => prev.filter((id) => !selectedForRemoval.includes(id)));
+                      setSelectedForRemoval([]);
+                    }}
+                  >
+                    <Trash2 className="h-4 w-4" strokeWidth={1.5} />
+                    Remove Teams
+                  </Button>
+                  {/* "outline" reads as the secondary action here — Save is
+                   * this page's one primary ("default") button, and this
+                   * shouldn't compete with it. */}
+                  <Button variant="outline" onClick={() => setAddTeamOpen(true)}>
+                    Add Teams
+                  </Button>
+                </div>
+              </div>
 
-          {/* ── Settings Page (AW-35954) ──
+              <div className="flex flex-col rounded-lyra-sm border border-lyra-border-subtle">
+                <div className="lyra-label flex items-center gap-4 border-b border-lyra-border-subtle bg-lyra-bg-surface-container-subtle px-4 py-2 text-lyra-fg-secondary">
+                  <span className="w-4" />
+                  <span className="flex-1">Name</span>
+                  <span className="w-[140px]">Assigned Users</span>
+                  <span className="w-[100px]">Status</span>
+                  <span className="w-[60px] text-right">Action</span>
+                </div>
+                {assignedTeams.length === 0 ? (
+                  <div className="px-4 py-10 text-center text-[14px] text-lyra-fg-secondary">
+                    No teams assigned yet. Add the new-hire cohort&apos;s team to give them
+                    access to this profile.
+                  </div>
+                ) : (
+                  assignedTeams.map((t) => (
+                    <div
+                      key={t.id}
+                      className="flex items-center gap-4 border-t border-lyra-border-subtle px-4 py-2.5 first:border-t-0"
+                    >
+                      <Checkbox
+                        checked={selectedForRemoval.includes(t.id)}
+                        onCheckedChange={() =>
+                          setSelectedForRemoval((prev) =>
+                            prev.includes(t.id) ? prev.filter((x) => x !== t.id) : [...prev, t.id]
+                          )
+                        }
+                      />
+                      <span className="flex-1 text-[14px] text-lyra-fg-default">{t.name}</span>
+                      <span className="w-[140px] text-[14px] text-lyra-fg-default">{t.assignedUsers}</span>
+                      <span className="w-[100px] text-[14px]">
+                        <StatusCell status={t.status} />
+                      </span>
+                      <span className="flex w-[60px] justify-end">
+                        <button
+                          onClick={() => setAssignedTeamIds((prev) => prev.filter((id) => id !== t.id))}
+                          aria-label={`Remove ${t.name}`}
+                          className="flex h-7 w-7 items-center justify-center rounded-lyra-xs text-lyra-fg-secondary hover:bg-lyra-state-hover hover:text-lyra-status-critical-strong"
+                        >
+                          <Trash2 className="h-4 w-4" strokeWidth={1.5} />
+                        </button>
+                      </span>
+                    </div>
+                  ))
+                )}
+              </div>
+
+              <AddTeamModal
+                open={addTeamOpen}
+                excludeIds={assignedTeamIds}
+                onCancel={() => setAddTeamOpen(false)}
+                onConfirm={(ids) => {
+                  setAssignedTeamIds((prev) => [...prev, ...ids]);
+                  setAddTeamOpen(false);
+                }}
+              />
+            </TabPanel>
+          )}
+
+          {/* ── Agent Settings Page (AW-35954) ──
            * Admin-facing show/hide + lock control over the agent's own
            * Settings app, mirroring that app's 3 real sub-tabs. Reuses the
            * governance components from settings-page-tile.tsx rather than
            * duplicating them, so the two stay in sync. */}
           <TabPanel active={tab === "settings-page"} className="flex flex-col gap-4 px-6 py-6">
-            <p className="lyra-body-md max-w-[720px] text-lyra-fg-secondary">
-              AW-35954 — mirrors the real Settings app&apos;s own tabs. Each
-              row&apos;s <strong>Agent Access</strong> control is a single
-              3-state choice — Hidden, Visible &amp; Editable, or Visible
-              &amp; Locked — instead of two separate switches, so there&apos;s
-              no way to configure a meaningless state like &quot;hidden but
-              editable.&quot; The value control itself (switch, select, or
-              slider) is what the admin sets as the enforced default in
-              every case.
-            </p>
             <TabList>
               <Tab
                 active={settingsPageInnerTab === "login-voice"}
@@ -419,8 +904,9 @@ export function CreateDesktopProfilePage() {
               <DisplayKeyboardTab />
             </TabPanel>
           </TabPanel>
-        </div>
-      </AdminShell>
+            </div>
+          </AdminShell>
+      </ContentArea>
     </div>
   );
 }

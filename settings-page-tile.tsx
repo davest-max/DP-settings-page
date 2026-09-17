@@ -1,10 +1,8 @@
 import * as React from "react";
 import { useState } from "react";
-import { CircleHelp, LayoutGrid, Bell, Box, Eye, EyeOff, Lock } from "lucide-react";
+import { Box, Eye, EyeOff, Lock } from "lucide-react";
 import {
   cn,
-  AppHeader,
-  AppName,
   AdminShell,
   Button,
   TabList,
@@ -13,16 +11,14 @@ import {
   Switch,
   Select,
   Slider,
-  ActionIconButton,
-  ProfileMenu,
-  CXoneSmiley,
-  defaultProfileMenuGroups,
+  ContentArea,
   type SelectOption,
   type TreeMenuItem,
 } from "../lyra-ui/src";
+import { AppShellHeader } from "./app-header";
 
 /**
- * AW-35954 exploration — "Settings Page" tile.
+ * AW-35954 exploration — "Agent Settings Page" tile.
  *
  * DWP wants admins to be able to (1) show/hide entire tabs and setting
  * areas in the agent's own Settings app, and (2) lock individual settings
@@ -37,34 +33,42 @@ import {
  * A/V Notifications, Display & Keyboard. Information, Agent Skills, and
  * Report Issue are read-only diagnostics / an assigned-skills list / a
  * support form, so they're out of scope here. This mock mirrors those 3
- * real tabs as sub-navigation *inside* a new "Settings Page" tab, rather
- * than flattening ~21 settings into one list.
+ * real tabs as sub-navigation *inside* a new "Agent Settings Page" tab,
+ * rather than flattening ~21 settings into one list.
  *
- * Governance model — REVISED from an earlier two-switch version (separate
- * Visible / Can Edit switches) after two problems surfaced in review:
- * (1) Visible and Can Edit aren't actually independent — if a setting is
- * hidden, whether it's "editable" is meaningless, so two switches implied
- * a 4th, invalid state (hidden-but-editable) that can't mean anything.
- * (2) A plain on/off switch for governance sitting right next to the
- * row's own Default Value switch was visually indistinguishable from it —
- * an admin had to keep re-reading the column header to remember which
- * switch meant "the setting's value" vs. "does the agent see this at
- * all." Collapsing to one 3-state control (Hidden / Visible — Agent Can
- * Edit / Visible — Locked) fixes both: only real states are selectable,
- * and a Select reads nothing like the value control's Switch.
+ * Governance model — 3 columns split by widget role, not by row-by-row
+ * judgment call:
+ *   1. Visibility  — any on/off Switch for the row lives here, whether
+ *      it's a real "does this exist in Agent Workspace at all" show/hide
+ *      (the two "Panel Open in Browser" rows, verified live) or a plain
+ *      enable/disable preference (Auto Accept, 24 Hour Time, Visual
+ *      Notification, the Mic/Speaker Noise Cancellation on/off itself).
+ *      A toggle reads as on-or-present vs. off-or-absent either way, so it
+ *      belongs in the same column regardless of which the real app treats
+ *      it as. Left blank for rows with no Switch at all.
+ *   2. Component Used — the setting's actual VALUE control once it's on:
+ *      a Select or Slider (Ringtone, Secondary Ringer Device/Delay,
+ *      Softphone Volume, Mic/Speaker Sensitivity, Tone). Left blank for a
+ *      row that's only ever a plain Switch with nothing further to
+ *      configure. Jabra Call Control has neither a Switch nor a Select/
+ *      Slider — a plain descriptive line stands in here instead, since it
+ *      has no single value to show.
+ *   3. Agent Access — a single 3-state choice (Hidden / Visible — Agent
+ *      Can Edit / Visible — Locked) governing what the agent can do with
+ *      the row. "Hidden" is dropped from this list for every row that
+ *      already has its own Visibility switch — a second "Hidden" would
+ *      just be a redundant way to do what that switch already does — and
+ *      kept only for rows with no Visibility switch at all, where Agent
+ *      Access is the sole way to hide them (Softphone Volume, Ringtone,
+ *      Secondary Ringer Device/Delay, Email Message Sort Order, Send with
+ *      Enter, Jabra Call Control).
  *
- * Design decision, made explicit rather than silently assumed: the row's
- * own value control (Switch / Select / Slider) IS the enforced value when
- * governance is "locked" — there's no separate "enforced value" widget.
- * On this admin screen the value control stays interactive regardless of
- * governance state, since an admin may want to pre-set a default even for
- * a setting they're hiding. What governance controls is agent behavior at
- * *runtime*, not anything on this config screen.
- *
- * Jabra Call Control's real UI is a device-pairing flow (Add Devices,
- * Selected Devices) that only makes sense with physical hardware present —
- * simplified here to a single feature-level governance row rather than
- * reproducing that pairing UI in an admin context.
+ *      Every row with a Visibility switch also disables its own Agent
+ *      Access dropdown (`governanceDisabled`) whenever that switch is
+ *      off, same as Component Used already did — there's nothing left to
+ *      grant edit/lock access to once the row itself is off. This started
+ *      as a Panel-rows-only behavior; it's now applied to every row that
+ *      has a Visibility switch, for the same reason.
  */
 
 /* ── Shared page chrome — same pattern as create-desktop-profile-page.tsx:
@@ -75,21 +79,6 @@ const NAV_ITEMS: TreeMenuItem[] = [
   { icon: <Box className="h-4 w-4" strokeWidth={1.5} />, label: "ACS Onboarding" },
   { icon: <Box className="h-4 w-4" strokeWidth={1.5} />, label: "CRM Integrations" },
 ];
-
-const HEADER_ACTIONS = (
-  <>
-    <ActionIconButton size="xl" title="Help">
-      <CircleHelp className="h-5 w-5" strokeWidth={1.5} />
-    </ActionIconButton>
-    <ActionIconButton size="xl" title="Apps">
-      <LayoutGrid className="h-5 w-5" strokeWidth={1.5} />
-    </ActionIconButton>
-    <ActionIconButton size="xl" title="Notifications" badge={5}>
-      <Bell className="h-5 w-5" strokeWidth={1.5} />
-    </ActionIconButton>
-    <ProfileMenu initials="JS" avatarColor="#5d6a79" groups={defaultProfileMenuGroups} className="ml-1" />
-  </>
-);
 
 /* ── Option groups for the Select-based rows ── */
 const RINGTONE_OPTIONS: SelectOption[] = [
@@ -136,12 +125,16 @@ const GOVERNANCE_OPTIONS: SelectOption[] = [
   { value: "locked", label: "Visible — Locked" },
 ];
 
-/* ── Same 3 states minus "Hidden" — for rows that already have their own
- * dedicated Component Used switch (see GovernanceRow's `componentControl`).
- * Once a separate switch removes the component from Agent Workspace
- * entirely, "Hidden" here would just be a second way to do the same
- * thing — redundant, so it's not offered. Agent Access on those rows is
- * only ever deciding editable-vs-locked for a component that's present. ── */
+/* ── Same 3 states minus "Hidden" — for every row that already has its
+ * own Visibility switch (the two Panel Open in Browser rows, Auto
+ * Accept, 24 Hour Time, Visual Notification, Mic/Speaker Noise
+ * Cancellation, Audio Notification). That switch already removes or
+ * mutes the row, so a second "Hidden" in this list would just be a
+ * redundant way to do the same thing. Rows with no Visibility switch at
+ * all (Softphone Volume, Ringtone, Secondary Ringer Device/Delay, Email
+ * Message Sort Order, Send with Enter, Jabra Call Control) keep the full
+ * `GOVERNANCE_OPTIONS` below, since Agent Access is their only way to be
+ * hidden. ── */
 const GOVERNANCE_OPTIONS_NO_HIDDEN: SelectOption[] = [
   { value: "editable", label: "Visible — Agent Can Edit" },
   { value: "locked", label: "Visible — Locked" },
@@ -161,20 +154,21 @@ function GovernanceIcon({ governance, muted }: { governance: Governance; muted?:
   return <Eye className={cls} strokeWidth={1.75} aria-hidden="true" />;
 }
 
-/* ── Table header row. "Component Used" only applies to a handful of
- * rows (see GovernanceRow's `componentUsedControl`) but stays in every
- * row's column grid — even where blank — so the 4 columns line up down
- * the whole table. ── */
+/* ── Table header row. Visibility holds a Switch for any row that has
+ * one; Component Used holds that row's Select/Slider value control (or a
+ * plain descriptive line for Jabra, which has neither). Both stay in
+ * every row's column grid, blank where a row has nothing for them, so
+ * all 4 columns line up down the whole table. ── */
 function GovernanceTableHeader() {
   return (
     <div className="flex items-center gap-4 border-b border-lyra-border-subtle bg-lyra-bg-surface-container-subtle px-4 py-2">
       <span className="w-[200px] flex-shrink-0 text-[11px] font-semibold uppercase tracking-wide text-lyra-fg-secondary">
         Setting
       </span>
-      <span className="w-[240px] flex-shrink-0 text-[11px] font-semibold uppercase tracking-wide text-lyra-fg-secondary">
-        Default Value
+      <span className="w-[110px] flex-shrink-0 text-[11px] font-semibold uppercase tracking-wide text-lyra-fg-secondary">
+        Visibility
       </span>
-      <span className="w-[130px] flex-shrink-0 text-[11px] font-semibold uppercase tracking-wide text-lyra-fg-secondary">
+      <span className="w-[280px] flex-shrink-0 text-[11px] font-semibold uppercase tracking-wide text-lyra-fg-secondary">
         Component Used
       </span>
       <span className="w-[240px] flex-shrink-0 text-[11px] font-semibold uppercase tracking-wide text-lyra-fg-secondary">
@@ -186,23 +180,24 @@ function GovernanceTableHeader() {
 
 /* ── One governed setting: name, then up to 3 controls.
  *
- * `children` sits in the standard "Default Value" column every row has.
- * For most rows that's an ordinary preference default (24 Hour Time,
- * Send with Enter) with Agent Access as a fully independent axis —
- * whether the agent can see or edit that preference's control. But for
- * "Panel Open in Browser" specifically, Default Value IS the show/hide:
- * whether the feature exists in Agent Workspace at all.
+ * `children` sits in the "Visibility" column — any on/off Switch for the
+ * row, and only a Switch. That covers both the two "Panel Open in
+ * Browser" rows (a real show/hide of the whole component) and plain
+ * enable/disable preferences elsewhere (Auto Accept, 24 Hour Time, Visual
+ * Notification, Mic/Speaker Noise Cancellation, Audio Notification) —
+ * a toggle reads as on-or-present vs. off-or-absent either way, so both
+ * kinds live in the same column rather than splitting by which the real
+ * app happens to treat as a true visibility concept. Left blank for a
+ * row with no Switch (Softphone Volume, Ringtone, Secondary Ringer
+ * Device/Delay, Email Message Sort Order, Send with Enter, Jabra Call
+ * Control).
  *
- * `componentUsedControl` is the narrower case those rows add: a 2nd
- * control, "Component Used", for the behavior's own on/off default once
- * it *is* present — i.e. what the agent will actually see reflected in
- * their Agent Workspace app. Omitting it (every other row) renders a
- * blank spacer so the 4 columns still line up.
- *
- * Once a row's Default Value already means show/hide, "Hidden" in Agent
- * Access is redundant — so those rows should be passed
- * `governanceOptions={GOVERNANCE_OPTIONS_NO_HIDDEN}` and
- * `governanceDisabled` tied to that switch's off state. */
+ * `componentUsedControl` is the "Component Used" column — the setting's
+ * further VALUE control once it's on: a Select or Slider. Left blank for
+ * a row that's only ever a Switch with nothing else to configure (Auto
+ * Accept, 24 Hour Time, Visual Notification). Jabra Call Control has
+ * neither a Switch nor a Select/Slider, so a plain descriptive line goes
+ * here instead — there's no single value to show. */
 function GovernanceRow({
   label,
   children,
@@ -225,8 +220,8 @@ function GovernanceRow({
       <span className="w-[200px] flex-shrink-0 text-[14px] font-bold leading-5 text-lyra-fg-default">
         {label}
       </span>
-      <div className="flex w-[240px] flex-shrink-0 items-center">{children}</div>
-      <div className="flex w-[130px] flex-shrink-0 items-center">{componentUsedControl}</div>
+      <div className="flex w-[110px] flex-shrink-0 items-center">{children}</div>
+      <div className="flex w-[280px] flex-shrink-0 items-center gap-2">{componentUsedControl}</div>
       <div className="flex w-[240px] flex-shrink-0 items-center gap-2">
         <GovernanceIcon governance={governance} muted={governanceDisabled} />
         <Select
@@ -280,63 +275,87 @@ export function LoginVoicePreferencesTab() {
 
   /* Jabra Call Control isn't a toggle in the real app (cxagent.nicecxone.com)
    * — it's an "Add Devices" button plus a Selected Devices picker, no on/off
-   * value at all. So there's no Default Value or Component Used control to
-   * show here; it's governed by Agent Access alone. */
+   * value at all. No Visibility control either; it's governed by Agent
+   * Access alone, with a plain descriptive line standing in for Component
+   * Used since there's no single value to show. */
   const [jabraGov, setJabraGov] = useState<Governance>("editable");
 
   return (
     <div className="rounded-b-lyra-sm border border-lyra-border-subtle">
       <GovernanceTableHeader />
-      <GovernanceRow label="Softphone Volume" governance={volumeGov} onGovernanceChange={setVolumeGov}>
-        <Slider value={volume} onChange={setVolume} min={0} max={100} className="w-[200px]" />
-      </GovernanceRow>
-      <GovernanceRow label="Auto Accept" governance={autoAcceptGov} onGovernanceChange={setAutoAcceptGov}>
+      <GovernanceRow
+        label="Softphone Volume"
+        governance={volumeGov}
+        onGovernanceChange={setVolumeGov}
+        componentUsedControl={
+          <Slider value={volume} onChange={setVolume} min={0} max={100} showTicks={false} className="w-full" />
+        }
+      />
+      <GovernanceRow
+        label="Auto Accept"
+        governance={autoAcceptGov}
+        onGovernanceChange={setAutoAcceptGov}
+        governanceOptions={GOVERNANCE_OPTIONS_NO_HIDDEN}
+        governanceDisabled={!autoAccept}
+      >
         <Switch size="sm" checked={autoAccept} onCheckedChange={setAutoAccept} aria-label="Auto Accept" />
       </GovernanceRow>
-      <GovernanceRow label="Ringtone" governance={ringtoneGov} onGovernanceChange={setRingtoneGov}>
-        <Select options={RINGTONE_OPTIONS} value={ringtone} onValueChange={setRingtone} className="w-[180px]" />
-      </GovernanceRow>
+      <GovernanceRow
+        label="Ringtone"
+        governance={ringtoneGov}
+        onGovernanceChange={setRingtoneGov}
+        componentUsedControl={
+          <Select options={RINGTONE_OPTIONS} value={ringtone} onValueChange={setRingtone} className="w-full" />
+        }
+      />
       <GovernanceRow
         label="Secondary Ringer Device"
         governance={secondaryDeviceGov}
         onGovernanceChange={setSecondaryDeviceGov}
-      >
-        <Select
-          options={SECONDARY_DEVICE_OPTIONS}
-          value={secondaryDevice}
-          onValueChange={setSecondaryDevice}
-          className="w-[180px]"
-        />
-      </GovernanceRow>
+        componentUsedControl={
+          <Select
+            options={SECONDARY_DEVICE_OPTIONS}
+            value={secondaryDevice}
+            onValueChange={setSecondaryDevice}
+            className="w-full"
+          />
+        }
+      />
       <GovernanceRow
         label="Secondary Ringer Delay"
         governance={secondaryDelayGov}
         onGovernanceChange={setSecondaryDelayGov}
-      >
-        <Select
-          options={SECONDARY_DELAY_OPTIONS}
-          value={secondaryDelay}
-          onValueChange={setSecondaryDelay}
-          className="w-[180px]"
-        />
-      </GovernanceRow>
-      {/* Merged with its Sensitivity slider — the real app shows the slider
-       * directly beneath this toggle and grays it out when off (verified
-       * live), the same dependent shape as Audio Notifications' Tone
-       * select. Hidden stays a valid Agent Access state here: turning
-       * Noise Cancellation off is just a preference value, not removing
-       * the control the way Panel Open in Browser's Default Value does. */}
+        componentUsedControl={
+          <Select
+            options={SECONDARY_DELAY_OPTIONS}
+            value={secondaryDelay}
+            onValueChange={setSecondaryDelay}
+            className="w-full"
+          />
+        }
+      />
+      {/* The enable/disable Switch is a toggle, so it sits in Visibility
+       * like any other toggle — off mutes the whole row's behavior, which
+       * reads the same as hiding it, even though the real app frames it as
+       * a preference rather than a true show/hide. Its Sensitivity slider
+       * is the actual VALUE control, so it's Component Used alone, grayed
+       * out when the Visibility switch is off (verified live: the real app
+       * shows the slider directly beneath this toggle and disables it the
+       * same way). */}
       <GovernanceRow
         label="Microphone Noise Cancellation"
         governance={micNoiseCancelGov}
         onGovernanceChange={setMicNoiseCancelGov}
+        governanceOptions={GOVERNANCE_OPTIONS_NO_HIDDEN}
+        governanceDisabled={!micNoiseCancel}
         componentUsedControl={
           <Slider
             value={micSensitivity}
             onChange={setMicSensitivity}
             min={0}
             max={100}
-            className="w-[100px]"
+            showTicks={false}
+            className="w-full"
             disabled={!micNoiseCancel}
             aria-label="Mic Sensitivity"
           />
@@ -348,13 +367,16 @@ export function LoginVoicePreferencesTab() {
         label="Speaker Noise Cancellation"
         governance={speakerNoiseCancelGov}
         onGovernanceChange={setSpeakerNoiseCancelGov}
+        governanceOptions={GOVERNANCE_OPTIONS_NO_HIDDEN}
+        governanceDisabled={!speakerNoiseCancel}
         componentUsedControl={
           <Slider
             value={speakerSensitivity}
             onChange={setSpeakerSensitivity}
             min={0}
             max={100}
-            className="w-[100px]"
+            showTicks={false}
+            className="w-full"
             disabled={!speakerNoiseCancel}
             aria-label="Speaker Sensitivity"
           />
@@ -362,12 +384,16 @@ export function LoginVoicePreferencesTab() {
       >
         <Switch size="sm" checked={speakerNoiseCancel} onCheckedChange={setSpeakerNoiseCancel} aria-label="Speaker Noise Cancellation" />
       </GovernanceRow>
-      {/* No Default Value or Component Used control — see state comment above. */}
-      <GovernanceRow label="Jabra Call Control" governance={jabraGov} onGovernanceChange={setJabraGov}>
-        <span className="lyra-body-sm text-lyra-fg-secondary">
-          Managed via Add Devices — no single on/off value
-        </span>
-      </GovernanceRow>
+      <GovernanceRow
+        label="Jabra Call Control"
+        governance={jabraGov}
+        onGovernanceChange={setJabraGov}
+        componentUsedControl={
+          <span className="lyra-body-sm text-lyra-fg-secondary">
+            Managed via Add Devices — no single on/off value
+          </span>
+        }
+      />
     </div>
   );
 }
@@ -421,6 +447,8 @@ export function AVNotificationsTab() {
           label={evt.label}
           governance={audioGov[evt.key]}
           onGovernanceChange={(v) => setAudioGov((p) => ({ ...p, [evt.key]: v }))}
+          governanceOptions={GOVERNANCE_OPTIONS_NO_HIDDEN}
+          governanceDisabled={!audioOn[evt.key]}
           componentUsedControl={
             <Select
               options={TONE_OPTIONS}
@@ -447,6 +475,8 @@ export function AVNotificationsTab() {
           label={evt.label}
           governance={visualGov[evt.key]}
           onGovernanceChange={(v) => setVisualGov((p) => ({ ...p, [evt.key]: v }))}
+          governanceOptions={GOVERNANCE_OPTIONS_NO_HIDDEN}
+          governanceDisabled={!visualOn[evt.key]}
         >
           <Switch
             size="sm"
@@ -483,7 +513,22 @@ export function DisplayKeyboardTab() {
     <>
       <div className="rounded-b-lyra-sm border border-lyra-border-subtle">
         <GovernanceTableHeader />
-        <SubGroupLabel>Feature Visibility</SubGroupLabel>
+        <GovernanceRow
+          label="24 Hour Time"
+          governance={twentyFourHourGov}
+          onGovernanceChange={setTwentyFourHourGov}
+          governanceOptions={GOVERNANCE_OPTIONS_NO_HIDDEN}
+          governanceDisabled={!twentyFourHour}
+        >
+          <Switch size="sm" checked={twentyFourHour} onCheckedChange={setTwentyFourHour} aria-label="24 Hour Time" />
+        </GovernanceRow>
+        {/* These are the only 2 rows on the whole page where the
+         * Visibility switch is a true show/hide of the component and
+         * still has its own separate Component Used value underneath
+         * (the grayscale switch) — every other Visibility switch on this
+         * page (Auto Accept, 24 Hour Time, etc.) is just that row's own
+         * plain enable/disable value, with nothing further in Component
+         * Used. */}
         <GovernanceRow
           label="Panel Open in Browser: General"
           governance={panelGeneralGov}
@@ -491,7 +536,7 @@ export function DisplayKeyboardTab() {
           governanceOptions={GOVERNANCE_OPTIONS_NO_HIDDEN}
           governanceDisabled={!panelGeneralUsed}
           componentUsedControl={
-            <div style={{ filter: "grayscale(1)" }} title="Component Used — the behavior's own on/off default once the feature is present">
+            <span title="Component Used — the behavior's own on/off default once the feature is present">
               <Switch
                 size="sm"
                 checked={panelGeneral}
@@ -499,14 +544,14 @@ export function DisplayKeyboardTab() {
                 disabled={!panelGeneralUsed}
                 aria-label="Panel Open in Browser: General — Component Used (what the agent sees in Agent Workspace)"
               />
-            </div>
+            </span>
           }
         >
           <Switch
             size="sm"
             checked={panelGeneralUsed}
             onCheckedChange={setPanelGeneralUsed}
-            aria-label="Panel Open in Browser: General — Default Value (show/hide)"
+            aria-label="Panel Open in Browser: General — Visibility (show/hide)"
           />
         </GovernanceRow>
         <GovernanceRow
@@ -516,7 +561,7 @@ export function DisplayKeyboardTab() {
           governanceOptions={GOVERNANCE_OPTIONS_NO_HIDDEN}
           governanceDisabled={!panelPageActionUsed}
           componentUsedControl={
-            <div style={{ filter: "grayscale(1)" }} title="Component Used — the behavior's own on/off default once the feature is present">
+            <span title="Component Used — the behavior's own on/off default once the feature is present">
               <Switch
                 size="sm"
                 checked={panelPageAction}
@@ -524,26 +569,32 @@ export function DisplayKeyboardTab() {
                 disabled={!panelPageActionUsed}
                 aria-label="Panel Open in Browser: Page Action Only — Component Used (what the agent sees in Agent Workspace)"
               />
-            </div>
+            </span>
           }
         >
           <Switch
             size="sm"
             checked={panelPageActionUsed}
             onCheckedChange={setPanelPageActionUsed}
-            aria-label="Panel Open in Browser: Page Action Only — Default Value (show/hide)"
+            aria-label="Panel Open in Browser: Page Action Only — Visibility (show/hide)"
           />
         </GovernanceRow>
-        <SubGroupLabel>Preferences</SubGroupLabel>
-        <GovernanceRow label="24 Hour Time" governance={twentyFourHourGov} onGovernanceChange={setTwentyFourHourGov}>
-          <Switch size="sm" checked={twentyFourHour} onCheckedChange={setTwentyFourHour} aria-label="24 Hour Time" />
-        </GovernanceRow>
-        <GovernanceRow label="Email Message Sort Order" governance={sortOrderGov} onGovernanceChange={setSortOrderGov}>
-          <Select options={SORT_ORDER_OPTIONS} value={sortOrder} onValueChange={setSortOrder} className="w-[220px]" />
-        </GovernanceRow>
-        <GovernanceRow label="Send with Enter" governance={sendWithEnterGov} onGovernanceChange={setSendWithEnterGov}>
-          <Select options={SEND_WITH_ENTER_OPTIONS} value={sendWithEnter} onValueChange={setSendWithEnter} className="w-[220px]" />
-        </GovernanceRow>
+        <GovernanceRow
+          label="Email Message Sort Order"
+          governance={sortOrderGov}
+          onGovernanceChange={setSortOrderGov}
+          componentUsedControl={
+            <Select options={SORT_ORDER_OPTIONS} value={sortOrder} onValueChange={setSortOrder} className="w-full" />
+          }
+        />
+        <GovernanceRow
+          label="Send with Enter"
+          governance={sendWithEnterGov}
+          onGovernanceChange={setSendWithEnterGov}
+          componentUsedControl={
+            <Select options={SEND_WITH_ENTER_OPTIONS} value={sendWithEnter} onValueChange={setSendWithEnter} className="w-full" />
+          }
+        />
       </div>
       <p className="lyra-body-sm mt-3 text-lyra-fg-secondary">
         The real Display &amp; Keyboard tab also has a read-only Keyboard
@@ -555,7 +606,7 @@ export function DisplayKeyboardTab() {
 }
 
 /* ── Placeholder for the page's other two top-level tabs, just enough to
- * show where "Settings Page" sits relative to them. ── */
+ * show where "Agent Settings Page" sits relative to them. ── */
 function OtherTabPlaceholder({ name }: { name: string }) {
   return (
     <div className="flex flex-col items-center justify-center gap-2 rounded-lyra-sm border border-dashed border-lyra-border-subtle px-6 py-16 text-center">
@@ -574,30 +625,27 @@ type InnerTab = "login-voice" | "av-notifications" | "display-keyboard";
 export function SettingsPageTile() {
   const [outerTab, setOuterTab] = useState<OuterTab>("settings-page");
   const [innerTab, setInnerTab] = useState<InnerTab>("av-notifications");
-
   return (
     <div className="flex h-screen flex-col overflow-hidden bg-lyra-bg-surface-shell">
-      <AppHeader
-        appName={<AppName name="Agent Configuration" icon={<CXoneSmiley />} />}
-        actions={HEADER_ACTIONS}
-        className="border-b border-lyra-border-subtle bg-lyra-bg-surface-base"
-      />
-      <AdminShell
-        storageKeyPrefix="settings-page-tile-preview"
-        navTitle="Agent Configuration"
-        navItems={NAV_ITEMS}
-        defaultLeftPinned
-        showPageHeader
-        pageTitle="Create Desktop Profile"
-        pageActions={
-          <>
-            <Button variant="outline">Cancel</Button>
-            <Button>Create</Button>
-          </>
-        }
-      >
-        <div className="flex flex-1 flex-col overflow-y-auto">
-          {/* ── Outer tabs — where "Settings Page" sits alongside the
+      <AppShellHeader />
+      <ContentArea>
+          <AdminShell
+            storageKeyPrefix="settings-page-tile-preview"
+            navTitle=""
+            navItems={NAV_ITEMS}
+            defaultLeftPinned
+            roundedContent
+            showPageHeader
+            pageTitle="Create Desktop Profile"
+            pageActions={
+              <>
+                <Button variant="outline">Cancel</Button>
+                <Button>Create</Button>
+              </>
+            }
+          >
+            <div className="flex flex-1 flex-col overflow-y-auto">
+          {/* ── Outer tabs — where "Agent Settings Page" sits alongside the
            * existing Settings / Assigned Teams tabs. This nested-tab
            * placement is one of the open IA questions from the critique:
            * worth judging here whether a tab-inside-a-tab reads clearly. */}
@@ -606,7 +654,7 @@ export function SettingsPageTile() {
               Settings
             </Tab>
             <Tab active={outerTab === "settings-page"} onClick={() => setOuterTab("settings-page")}>
-              Settings Page
+              Agent Settings Page
             </Tab>
             <Tab active={outerTab === "teams"} onClick={() => setOuterTab("teams")}>
               Assigned Teams
@@ -620,16 +668,6 @@ export function SettingsPageTile() {
             <OtherTabPlaceholder name="Assigned Teams" />
           </TabPanel>
           <TabPanel active={outerTab === "settings-page"} className="flex flex-col gap-4 px-6 py-6">
-            <p className="lyra-body-md max-w-[720px] text-lyra-fg-secondary">
-              AW-35954 — mirrors the real Settings app's own tabs. Each
-              row's <strong>Agent Access</strong> control is a single
-              3-state choice — Hidden, Visible &amp; Editable, or
-              Visible &amp; Locked — instead of two separate switches, so
-              there's no way to configure a meaningless state like
-              "hidden but editable." The value control itself (switch,
-              select, or slider) is what the admin sets as the enforced
-              default in every case.
-            </p>
             <TabList>
               <Tab active={innerTab === "login-voice"} onClick={() => setInnerTab("login-voice")}>
                 Login & Voice Preferences
@@ -651,8 +689,9 @@ export function SettingsPageTile() {
               <DisplayKeyboardTab />
             </TabPanel>
           </TabPanel>
-        </div>
-      </AdminShell>
+            </div>
+          </AdminShell>
+      </ContentArea>
     </div>
   );
 }
