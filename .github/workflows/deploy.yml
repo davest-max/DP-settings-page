@@ -1,12 +1,23 @@
 name: Deploy to GitHub Pages
 
-# NOTE (see chat with Dave before this will actually go green): the app's
-# .tsx files import the design system from "../lyra-ui/src" — a sibling
-# folder on Dave's machine that (a) isn't part of this repo and (b) isn't
-# itself a git repo. actions/checkout below only fetches DP-settings-page,
-# so that import can't resolve on the runner yet and `npm run build` will
-# fail until lyra-ui's source is made reachable here somehow (vendoring a
-# copy into this repo, publishing it as its own package, etc.).
+# This app imports its design system from "../lyra-ui/src" (plus
+# "../lyra-ui/tailwind-tokens.cjs" for Tailwind's color tokens) — a sibling
+# folder that lives outside this repo on Dave's machine, and whose
+# node_modules this repo's own node_modules is normally just a symlink to
+# (see `ls -la node_modules` locally). Since the real lyra-ui project isn't
+# (yet) its own git repo or published package, a snapshot of it is vendored
+# here at .vendor/lyra-ui/ (src/, tailwind-tokens.cjs, package.json,
+# package-lock.json). The steps below recreate that same layout on the
+# runner — sibling folder + symlinked node_modules — before building.
+# See .vendor/lyra-ui/README.md for how to refresh the snapshot.
+#
+# Step order matters: "Install app dependencies" must run BEFORE the
+# symlink step. This app's own package.json has no dependencies of its
+# own yet, but `npm install` still touches `node_modules` as part of its
+# normal bookkeeping — if a symlink is already sitting there, npm deletes
+# it (logged as "npm warn reify Removing non-directory ... node_modules"),
+# silently breaking every import in the build that follows. Verified by
+# reproducing this exact sequence in a scratch copy before relying on it.
 
 on:
   push:
@@ -34,10 +45,21 @@ jobs:
         with:
           node-version: 22
 
-      # No package-lock.json is committed yet, so `npm ci` isn't available.
-      # Switch this to `npm ci` once a lockfile is added (see chat).
-      - name: Install dependencies
+      - name: Materialize sibling lyra-ui from vendored snapshot
+        run: |
+          cp -R .vendor/lyra-ui "${{ github.workspace }}/../lyra-ui"
+          cd "${{ github.workspace }}/../lyra-ui"
+          npm ci
+
+      # No dependencies of its own today (see the symlink step below) —
+      # this is a no-op until/unless the app gets a package.json with real
+      # deps, kept here so that transition doesn't silently need a
+      # workflow edit. Must run before the symlink step (see note above).
+      - name: Install app dependencies
         run: npm install
+
+      - name: Link node_modules to the sibling lyra-ui (mirrors local dev)
+        run: ln -sf ../lyra-ui/node_modules node_modules
 
       - name: Build
         run: npm run build
