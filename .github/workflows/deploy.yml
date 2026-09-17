@@ -1,0 +1,59 @@
+name: Deploy to GitHub Pages
+
+# NOTE (see chat with Dave before this will actually go green): the app's
+# .tsx files import the design system from "../lyra-ui/src" — a sibling
+# folder on Dave's machine that (a) isn't part of this repo and (b) isn't
+# itself a git repo. actions/checkout below only fetches DP-settings-page,
+# so that import can't resolve on the runner yet and `npm run build` will
+# fail until lyra-ui's source is made reachable here somehow (vendoring a
+# copy into this repo, publishing it as its own package, etc.).
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      # No package-lock.json is committed yet, so `npm ci` isn't available.
+      # Switch this to `npm ci` once a lockfile is added (see chat).
+      - name: Install dependencies
+        run: npm install
+
+      - name: Build
+        run: npm run build
+
+      - name: Upload build output
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: ./dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
