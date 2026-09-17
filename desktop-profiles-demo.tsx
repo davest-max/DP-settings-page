@@ -165,7 +165,14 @@ const INITIAL_QUEUE_ITEMS: QueueItemDef[] = [
 type Screen =
   | { name: "review-queue" }
   | { name: "list" }
-  | { name: "create"; focusItem?: ReviewItemKey }
+  /**
+   * `focusItem` (set by Review Queue) and `aiDrafted` (set by the AI
+   * Assistant's "create a profile" action) both mean the same thing to
+   * `CreateDesktopProfilePage`'s `showAiDraftPreview` prop — "this is an
+   * agent-drafted profile the admin is reviewing," not a blank form. A
+   * plain "New Desktop Profile" click sets neither, so it lands clean.
+   */
+  | { name: "create"; focusItem?: ReviewItemKey; aiDrafted?: boolean }
   | { name: "edit"; profileId: string; tab?: "settings" | "teams" | "settings-page"; innerTab?: "login-voice" | "av-notifications" | "display-keyboard" };
 
 /* Shared left nav — identical across every screen so it reads as one app,
@@ -399,7 +406,7 @@ export function DesktopProfilesDemo() {
         { role: "assistant", text: reply.text, processSteps: reply.processSteps },
       ]);
       if (reply.action === "create-profile") {
-        setScreen({ name: "create" });
+        setScreen({ name: "create", aiDrafted: true });
       }
     }, 450);
   }
@@ -496,6 +503,7 @@ export function DesktopProfilesDemo() {
             onCancel={() => setScreen({ name: "list" })}
             navItems={navItems}
             initialFocusItem={screen.focusItem}
+            showAiDraftPreview={!!screen.focusItem || !!screen.aiDrafted}
             onOpenAssistant={() => setAiPanelOpen(true)}
           />
         )}

@@ -1,6 +1,6 @@
 import * as React from "react";
 import { useState, useRef, useEffect } from "react";
-import { Box, CheckCircle2, MinusCircle, Trash2, X } from "lucide-react";
+import { Box, CheckCircle2, ChevronRight, MinusCircle, Trash2, X } from "lucide-react";
 import {
   cn,
   AdminShell,
@@ -190,6 +190,45 @@ const SettingsFieldRow = React.forwardRef<
 });
 SettingsFieldRow.displayName = "SettingsFieldRow";
 
+/* ── A row that links into a whole other page's worth of settings,
+ * instead of holding a single show/hide flag like every other row in
+ * this table. Deliberately NOT a `SettingsFieldRow` + trailing control —
+ * the whole row is the click target (no separate button inside it, per
+ * Dave's call on how to treat this), and it carries a secondary caption
+ * so its scope reads as "there's more here," not just another toggle.
+ *
+ * Currently used for one row (Agent Settings Page), pinned first in the
+ * Apps list so it doesn't get lost after nine toggle rows. The shape is
+ * its own component rather than folded into `SettingsFieldRow` so more
+ * pages can get the same treatment later without another one-off — see
+ * Dave's framing: "a future where all pages are listed... to reveal more
+ * detailed settings beyond just show/hide." */
+function AppsPageLinkRow({
+  label,
+  description,
+  onClick,
+}: {
+  label: string;
+  description: string;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="flex items-center gap-6 border-t border-lyra-border-subtle px-4 py-3 text-left first:border-t-0 hover:bg-lyra-state-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-lyra-border-focus"
+    >
+      <span className="flex w-[220px] flex-shrink-0 flex-col gap-0.5">
+        <span className="text-[14px] font-bold leading-5 text-lyra-fg-default">{label}</span>
+        <span className="lyra-body-sm text-lyra-fg-secondary">{description}</span>
+      </span>
+      <span className="flex flex-1 items-center justify-end">
+        <ChevronRight className="h-4 w-4 text-lyra-fg-secondary" strokeWidth={1.5} />
+      </span>
+    </button>
+  );
+}
+
 /* ── Small "needs review" flag for a row an AI agent drafted but
  * couldn't confidently finish alone — see the `aiDraftPreview` toggle in
  * `CreateDesktopProfilePage` below. `title` carries the specific reason,
@@ -367,6 +406,17 @@ interface CreateDesktopProfilePageProps {
   initialSettingsPageInnerTab?: "login-voice" | "av-notifications" | "display-keyboard";
   /** Scrolls to and highlights one of the 3 AI-flagged rows on mount — the same jump the in-page review banner's chips perform, reachable from outside the page (e.g. the Review Queue). Only meaningful in "create" mode, where those rows exist. */
   initialFocusItem?: ReviewItemKey;
+  /**
+   * Shows the "Agent-drafted profile" banner (+ the 3 flagged-row
+   * highlights) on mount. Only meaningful in "create" mode. This page no
+   * longer decides that for itself — a fresh "New Desktop Profile" click
+   * should land on a plain, empty form, not an AI overlay the admin never
+   * asked for. The caller (`DesktopProfilesDemo`) passes `true` only for
+   * the two entry points that are actually reviewing an AI draft: a
+   * Review Queue item (which also sets `initialFocusItem`) or the AI
+   * Assistant's "create a profile" action. Defaults to `false`.
+   */
+  showAiDraftPreview?: boolean;
   /** Opens the docked AI Assistant panel (owned by `DesktopProfilesDemo`, shared across every screen) — renders an "Ask AI" page action when provided. */
   onOpenAssistant?: () => void;
 }
@@ -382,6 +432,7 @@ export function CreateDesktopProfilePage({
   initialTab = "settings",
   initialSettingsPageInnerTab = "login-voice",
   initialFocusItem,
+  showAiDraftPreview = false,
   onOpenAssistant,
 }: CreateDesktopProfilePageProps) {
   const [tab, setTab] = useState<"settings" | "teams" | "settings-page">(initialTab);
@@ -438,18 +489,22 @@ export function CreateDesktopProfilePage({
   const [screenPopAlwaysStealFocus, setScreenPopAlwaysStealFocus] = useState(false);
 
   /* ── "Agent-drafted profile" preview ──
-   * A sketch of what this screen could look like after an AI agent (working
-   * from an uploaded new-hire roster elsewhere in the app) has drafted this
-   * profile itself: most fields set with high confidence, a handful flagged
-   * because they're real policy calls only a human admin should make
-   * (does this training cohort get live Queue Counter access yet, which
-   * Outbound Calling actions, how wide a Directory scope). Toggled on its
-   * own button — separate from Cancel/Create — so it's clearly a preview
-   * of a possible future state, not a real field on this page today.
-   * Defaults on for a fresh "create" instance so the reviewable draft is
-   * visible immediately, matching the demo's story; an "edit" instance
-   * (the profile already exists) never shows it. */
-  const [aiDraftPreview, setAiDraftPreview] = useState(mode === "create");
+   * A sketch of what this screen looks like when it's showing a profile an
+   * AI agent (working from an uploaded new-hire roster elsewhere in the
+   * app) actually drafted: most fields set with high confidence, a handful
+   * flagged because they're real policy calls only a human admin should
+   * make (does this training cohort get live Queue Counter access yet,
+   * which Outbound Calling actions, how wide a Directory scope).
+   *
+   * Driven entirely by the `showAiDraftPreview` prop now, not a button on
+   * this page — a fresh "New Desktop Profile" click should show a plain
+   * empty form, since nothing has drafted anything yet. The banner only
+   * has a reason to exist when the admin is actually reviewing something
+   * the agent already produced, i.e. arrived here via a Review Queue item
+   * or the AI Assistant's "create a profile" action — both set
+   * `showAiDraftPreview`/`initialFocusItem` from outside (see
+   * `DesktopProfilesDemo`). "edit" mode never shows it. */
+  const aiDraftPreview = mode === "create" && showAiDraftPreview;
   const [pendingReviewJump, setPendingReviewJump] = useState<ReviewItemKey | null>(initialFocusItem ?? null);
 
   const queueCounterRowRef = useRef<HTMLDivElement>(null);
@@ -529,18 +584,6 @@ export function CreateDesktopProfilePage({
                       Ask AI
                     </Button>
                   )}
-                  <Button
-                    variant="outline"
-                    aria-pressed={aiDraftPreview}
-                    onClick={() => setAiDraftPreview((v) => !v)}
-                    className={cn(
-                      "gap-1.5",
-                      aiDraftPreview && "border-lyra-border-active bg-lyra-bg-active-subtle text-lyra-fg-action"
-                    )}
-                  >
-                    <AiIcon className="h-4 w-4" />
-                    {aiDraftPreview ? "AI Draft Preview: On" : "Preview: AI-Drafted"}
-                  </Button>
                   <Button variant="outline" onClick={onCancel}>
                     Cancel
                   </Button>
@@ -585,19 +628,22 @@ export function CreateDesktopProfilePage({
                   </div>
                 </div>
               )}
-              <TabList className="px-6">
-                <Tab active={tab === "settings"} onClick={() => setTab("settings")}>
-                  Settings
-            </Tab>
-            <Tab active={tab === "settings-page"} onClick={() => setTab("settings-page")}>
-              Agent Settings Page
-            </Tab>
-            {mode === "edit" && (
-              <Tab active={tab === "teams"} onClick={() => setTab("teams")}>
-                Assigned Teams
-              </Tab>
-            )}
-          </TabList>
+              {/* Hidden while viewing Agent Settings Page — it's no longer a
+               * peer tab (see below), so a tab bar with nothing in it
+               * active would just be confusing. The breadcrumb inside
+               * that panel is the only way in or out of it now. */}
+              {tab !== "settings-page" && (
+                <TabList className="px-6">
+                  <Tab active={tab === "settings"} onClick={() => setTab("settings")}>
+                    Settings
+                  </Tab>
+                  {mode === "edit" && (
+                    <Tab active={tab === "teams"} onClick={() => setTab("teams")}>
+                      Assigned Teams
+                    </Tab>
+                  )}
+                </TabList>
+              )}
 
           <TabPanel active={tab === "settings"} className="flex flex-col gap-6 px-6 py-6">
             <div className="flex gap-6">
@@ -621,6 +667,11 @@ export function CreateDesktopProfilePage({
             <section>
               <SectionHeader>Apps</SectionHeader>
               <div className="flex flex-col rounded-b-lyra-sm border border-lyra-border-subtle">
+                <AppsPageLinkRow
+                  label="Agent Settings Page"
+                  description="3 sections"
+                  onClick={() => setTab("settings-page")}
+                />
                 {APPS.map((app) => {
                   const isReviewItem = aiDraftPreview && app.key === "queue-counter";
                   return (
@@ -872,8 +923,37 @@ export function CreateDesktopProfilePage({
            * Admin-facing show/hide + lock control over the agent's own
            * Settings app, mirroring that app's 3 real sub-tabs. Reuses the
            * governance components from settings-page-tile.tsx rather than
-           * duplicating them, so the two stay in sync. */}
+           * duplicating them, so the two stay in sync.
+           *
+           * No longer a peer tab next to Settings/Assigned Teams — the
+           * only way in is the "Agent Settings Page" row pinned at the
+           * top of the Apps grid (see `AppsPageLinkRow` above), so this
+           * reads as a page you drill into rather than one more tab among
+           * equals. The breadcrumb below (mirrors `PageHeader`'s own
+           * "ParentName / Title" pattern, just scoped to this panel
+           * instead of the page header) is the only way back. */}
           <TabPanel active={tab === "settings-page"} className="flex flex-col gap-4 px-6 py-6">
+            <nav aria-label="Breadcrumb">
+              <ol className="m-0 flex list-none items-center gap-2 p-0">
+                <li>
+                  <button
+                    type="button"
+                    onClick={() => setTab("settings")}
+                    className="text-[14px] font-bold leading-5 text-lyra-fg-secondary transition-colors hover:text-lyra-fg-default focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-lyra-border-focus"
+                  >
+                    Settings
+                  </button>
+                </li>
+                <li aria-hidden="true">
+                  <span className="text-[14px] leading-5 text-lyra-fg-secondary">/</span>
+                </li>
+                <li aria-current="page">
+                  <span className="text-[14px] font-bold leading-5 text-lyra-fg-default">
+                    Agent Settings Page
+                  </span>
+                </li>
+              </ol>
+            </nav>
             <TabList>
               <Tab
                 active={settingsPageInnerTab === "login-voice"}
