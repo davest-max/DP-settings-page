@@ -404,8 +404,9 @@ interface NotificationEvent {
   label: string;
 }
 const NOTIFICATION_EVENTS: NotificationEvent[] = [
+  { key: "new-voice-call", label: "New Voice Call" },
   { key: "new-agent-message", label: "New Agent Message" },
-  { key: "new-contact", label: "New Contact" },
+  { key: "new-contact", label: "New Digital Contact" },
   { key: "new-contact-reply", label: "New Contact Reply" },
   { key: "end-chat-or-call", label: "End Chat or Call" },
 ];
@@ -413,12 +414,14 @@ const NOTIFICATION_EVENTS: NotificationEvent[] = [
 export function AVNotificationsTab() {
   const [audioOn, setAudioOn] = useState<Record<string, boolean>>({
     "new-agent-message": true,
+    "new-voice-call": true,
     "new-contact": true,
     "new-contact-reply": true,
     "end-chat-or-call": true,
   });
   const [audioTone, setAudioTone] = useState<Record<string, string>>({
     "new-agent-message": "tone-1",
+    "new-voice-call": "tone-1",
     "new-contact": "tone-2",
     "new-contact-reply": "tone-3",
     "end-chat-or-call": "tone-4",
@@ -429,6 +432,7 @@ export function AVNotificationsTab() {
 
   const [visualOn, setVisualOn] = useState<Record<string, boolean>>({
     "new-agent-message": true,
+    "new-voice-call": true,
     "new-contact": true,
     "new-contact-reply": true,
     "end-chat-or-call": true,
