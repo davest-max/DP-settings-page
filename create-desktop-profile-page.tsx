@@ -1,5 +1,5 @@
 import * as React from "react";
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useMemo } from "react";
 import { Box, CheckCircle2, ChevronRight, MinusCircle, Trash2, X } from "lucide-react";
 import {
   cn,
@@ -19,7 +19,8 @@ import {
   type SelectOption,
   type TreeMenuItem,
 } from "../lyra-ui/src";
-import { ToggleChipGroup, type ToggleChipOption } from "./toggle-chip";
+import { ToggleChip, ToggleChipGroup, type ToggleChipOption } from "./toggle-chip";
+import { PageOrderEditorModal, type PageOrderItem } from "./page-order-editor";
 import {
   LoginVoicePreferencesTab,
   AVNotificationsTab,
@@ -104,8 +105,49 @@ const APPS: AppToggleDef[] = [
   { key: "launch", label: "Launch" },
   { key: "custom-workspace", label: "Custom Workspace" },
   { key: "reporting", label: "Reporting" },
-  { key: "conversations", label: "Conversations" },
+  { key: "conversations", label: "Internal Chat" },
 ];
+
+/* AW-61857 — default page order for the "Allow Agents to Reorder & Pin
+ * Quick Bar / App Space" row's editor. Meant to read as "every page that
+ * could exist" (Dave's reference screenshot of the real Agent Workspace
+ * nav), not just the 9 apps this one profile's Apps table happens to
+ * toggle — so pages with no Apps-table entry anywhere in this prototype
+ * (Directory, Settings, Help) are included too, defaulting into More
+ * ellipsis (`band: "more"`) rather than competing for a rail slot right
+ * away. "Internal Chat" from that screenshot is the same real page as
+ * this profile's "conversations" app — the Apps table row above was
+ * renamed "Internal Chat" too (was "Conversations"), so both stay in
+ * sync; "Queue Counter" → "Queue" here is display-only in this list, the
+ * Apps table row above still reads "Queue Counter" (the
+ * `APPS_TABLE_PAGE_KEYS`/"desk" special cases below key off `key`, not
+ * `label`, so neither rename affects anything else).
+ * Order below is a starting point the editor is built to change, not a
+ * rule. */
+const DEFAULT_PAGE_ORDER_ITEMS: PageOrderItem[] = [
+  { key: "desk", label: "Desk" },
+  { key: "search", label: "Search" },
+  { key: "contact-history", label: "Contact History" },
+  { key: "queue-counter", label: "Queue" },
+  { key: "directory", label: "Directory", band: "more" },
+  { key: "schedule", label: "Schedule" },
+  { key: "custom-workspace", label: "Custom Workspace" },
+  { key: "conversations", label: "Internal Chat" },
+  { key: "launch", label: "Launch" },
+  { key: "wem", label: "WEM" },
+  { key: "settings-nav", label: "Settings", band: "more" },
+  { key: "reporting", label: "Reporting" },
+  { key: "help", label: "Help", band: "more" },
+];
+
+/* Keys whose visibility is governed by a real Switch in the Apps table
+ * above (see `apps` state) — Hidden is ONLY ever true for these (Dave's
+ * call: only a page that's also a real Apps-table toggle can be hidden
+ * at all), and only via that Switch, never by dragging in the Page
+ * Order modal. Everything else in `DEFAULT_PAGE_ORDER_ITEMS` — "desk"
+ * and the 3 no-Apps-table pages above — is always visible; the modal
+ * only ever moves those between Shown and More. */
+const APPS_TABLE_PAGE_KEYS = new Set(APPS.map((app) => app.key));
 
 /* ── Assigned Teams — sample directory of real-looking teams (names
  * mirror the actual production "Add Team" picker), plus one standing in
@@ -486,6 +528,22 @@ export function CreateDesktopProfilePage({
    * capability's stated "today's default behavior", not a finalized spec. */
   const [typingIndicators, setTypingIndicators] = useState(true);
   const [quickBarAgentCustomization, setQuickBarAgentCustomization] = useState(true);
+  const [pageOrderItems, setPageOrderItems] = useState<PageOrderItem[]>(
+    DEFAULT_PAGE_ORDER_ITEMS
+  );
+  const [pageOrderEditorOpen, setPageOrderEditorOpen] = useState(false);
+  // Only Apps-table pages can ever be hidden (Dave's call) — everything
+  // else (Desk, Directory, Settings, Help) is always visible here,
+  // regardless of any `hidden` a stale save might carry.
+  const pageOrderItemsWithVisibility = useMemo<PageOrderItem[]>(
+    () =>
+      pageOrderItems.map((item) =>
+        APPS_TABLE_PAGE_KEYS.has(item.key)
+          ? { ...item, hidden: apps[item.key] === false }
+          : { ...item, hidden: false }
+      ),
+    [pageOrderItems, apps]
+  );
   const [screenPopAlwaysStealFocus, setScreenPopAlwaysStealFocus] = useState(false);
 
   /* ── "Agent-drafted profile" preview ──
@@ -798,20 +856,32 @@ export function CreateDesktopProfilePage({
                     className="w-[220px]"
                   />
                 </SettingsFieldRow>
+                <SettingsFieldRow label="Allow Agents to Reorder & Pin Quick Bar / App Space">
+                  <div className="flex items-center gap-3">
+                    {/* AW-61857 — a chip instead of a plain toggle: "Agent
+                     * Editable" (selected) / not (unselected) is more
+                     * specific about what this actually controls than a
+                     * bare on/off switch was. */}
+                    <ToggleChip
+                      label="Agent Editable"
+                      selected={quickBarAgentCustomization}
+                      onToggle={() => setQuickBarAgentCustomization((v) => !v)}
+                    />
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setPageOrderEditorOpen(true)}
+                    >
+                      Set page order
+                    </Button>
+                  </div>
+                </SettingsFieldRow>
                 <SettingsFieldRow label="Agent-to-Patron Typing Indicators">
                   <Switch
                     size="sm"
                     checked={typingIndicators}
                     onCheckedChange={setTypingIndicators}
                     aria-label="Agent-to-Patron Typing Indicators"
-                  />
-                </SettingsFieldRow>
-                <SettingsFieldRow label="Allow Agents to Reorder & Pin Quick Bar / App Space">
-                  <Switch
-                    size="sm"
-                    checked={quickBarAgentCustomization}
-                    onCheckedChange={setQuickBarAgentCustomization}
-                    aria-label="Allow Agents to Reorder & Pin Quick Bar / App Space"
                   />
                 </SettingsFieldRow>
                 <SettingsFieldRow label="Screen Pops Always Steal Focus">
@@ -987,6 +1057,24 @@ export function CreateDesktopProfilePage({
             </div>
           </AdminShell>
       </ContentArea>
+
+      <PageOrderEditorModal
+        open={pageOrderEditorOpen}
+        items={pageOrderItemsWithVisibility}
+        onCancel={() => setPageOrderEditorOpen(false)}
+        onSave={(items) => {
+          // `hidden` is always Apps-table-derived (recomputed above), never
+          // worth persisting; only `band` (Shown vs. More) is real state.
+          setPageOrderItems(
+            items.map(({ key, label, band }) => ({
+              key,
+              label,
+              ...(band ? { band } : {}),
+            }))
+          );
+          setPageOrderEditorOpen(false);
+        }}
+      />
     </div>
   );
 }

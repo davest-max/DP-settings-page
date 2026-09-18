@@ -380,10 +380,13 @@ const assistantHistoryContent = (
 );
 
 export function DesktopProfilesDemo() {
-  // Desktop Profiles is the landing screen, same as the real app — Review
-  // Queue is a click away from its notification line, not somewhere the
-  // demo forces you to look at first.
-  const [screen, setScreen] = useState<Screen>({ name: "list" });
+  // Landing screen is Desktop Profile TEST's settings table (Update Desktop
+  // Profile → Settings tab) rather than the Desktop Profiles list — a Dave
+  // request so this profile's settings are front and center on load.
+  const [screen, setScreen] = useState<Screen>({
+    name: "edit",
+    profileId: "desktop-profile-test",
+  });
   const [profiles, setProfiles] = useState<DesktopProfileRow[]>(INITIAL_PROFILES);
   const [queueItems, setQueueItems] = useState<QueueItemDef[]>(INITIAL_QUEUE_ITEMS);
   const { toasts, addToast, dismissToast } = useToast();
@@ -489,7 +492,11 @@ export function DesktopProfilesDemo() {
             onNewProfile={() => setScreen({ name: "create" })}
             onOpenProfile={(id) => setScreen({ name: "edit", profileId: id })}
             navItems={navItems}
-            pendingReviewCount={queueItems.length}
+            // Hidden per Dave's request — was `queueItems.length`. Restore
+            // that (and keep onOpenReviewQueue below) to bring the banner
+            // back; Review Queue itself is untouched, just unreachable from
+            // this page while the banner is suppressed.
+            pendingReviewCount={0}
             onOpenReviewQueue={() => setScreen({ name: "review-queue" })}
             onOpenAssistant={() => setAiPanelOpen(true)}
           />
