@@ -142,18 +142,40 @@ const GOVERNANCE_OPTIONS_NO_HIDDEN: SelectOption[] = [
   { value: "locked", label: "Visible — Locked" },
 ];
 
+/* ── Color-codes Agent Access by state so a whole column of these reads
+ * as a strip of green/amber/red dots at a glance, instead of the same
+ * gray icon shape repeated down every row (shape alone asks you to
+ * actually read each one). Reuses the app's existing `status` tokens
+ * (success/warning/critical) rather than inventing new colors — the
+ * same soft-background + strong-icon pairing already used for chips
+ * elsewhere (`ReviewBadge`, the Hidden/Home chips in the Page Order
+ * modal), so this reads as the same visual language, not a one-off.
+ * Semantics: editable = success (agent has full run of it), locked =
+ * warning (visible, but admin has fixed it — worth a second look if
+ * that's not what you expected), hidden = critical (off entirely for
+ * the agent). `muted` (governance disabled, e.g. the row's own
+ * visibility Switch is off) drops back to plain gray so a genuinely
+ * inert row doesn't compete for attention with real states. */
 function GovernanceIcon({ governance, muted }: { governance: Governance; muted?: boolean }) {
-  const cls = cn(
-    "h-3.5 w-3.5 flex-shrink-0",
-    muted ? "text-lyra-fg-disabled" : "text-lyra-fg-secondary"
+  const Icon = governance === "hidden" ? EyeOff : governance === "locked" ? Lock : Eye;
+  const swatchCls = muted
+    ? "bg-lyra-bg-surface-container-subtle text-lyra-fg-disabled"
+    : governance === "hidden"
+    ? "bg-lyra-status-critical-subtle text-lyra-status-critical-strong"
+    : governance === "locked"
+    ? "bg-lyra-status-warning-subtle text-lyra-status-warning-strong"
+    : "bg-lyra-status-success-subtle text-lyra-status-success-strong";
+
+  return (
+    <span
+      className={cn(
+        "flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full",
+        swatchCls
+      )}
+    >
+      <Icon className="h-3 w-3" strokeWidth={2} aria-hidden="true" />
+    </span>
   );
-  if (governance === "hidden") {
-    return <EyeOff className={cls} strokeWidth={1.75} aria-hidden="true" />;
-  }
-  if (governance === "locked") {
-    return <Lock className={cls} strokeWidth={1.75} aria-hidden="true" />;
-  }
-  return <Eye className={cls} strokeWidth={1.75} aria-hidden="true" />;
 }
 
 /* ── Plays the row's currently-selected Tone (see `tone-preview.ts`).
