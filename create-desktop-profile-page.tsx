@@ -1,6 +1,6 @@
 import * as React from "react";
 import { useState, useRef, useEffect, useMemo } from "react";
-import { Box, CheckCircle2, ChevronRight, MinusCircle, Trash2, X } from "lucide-react";
+import { Box, CheckCircle2, MinusCircle, Trash2, X } from "lucide-react";
 import {
   cn,
   AdminShell,
@@ -234,10 +234,17 @@ SettingsFieldRow.displayName = "SettingsFieldRow";
 
 /* ── A row that links into a whole other page's worth of settings,
  * instead of holding a single show/hide flag like every other row in
- * this table. Deliberately NOT a `SettingsFieldRow` + trailing control —
- * the whole row is the click target (no separate button inside it, per
- * Dave's call on how to treat this), and it carries a secondary caption
- * so its scope reads as "there's more here," not just another toggle.
+ * this table. Still not a `SettingsFieldRow` + trailing control — the
+ * whole row stays the click target (Dave's call, kept from the earlier
+ * version) — but it now shares `SettingsFieldRow`'s exact two-column
+ * shape (fixed label column, flex-1 second column) instead of stacking
+ * label+caption inside column one, so it reads as one row among the
+ * Apps table's other rows rather than a taller, differently-shaped one.
+ * The description is left as plain secondary text, not link-styled —
+ * with the whole row already clickable, underlining just the caption
+ * would suggest only that part responds to a click. No trailing chevron
+ * either, per the same call: pinned to the far right, it was too far
+ * from the label to register.
  *
  * Currently used for one row (Agent Settings Page), pinned first in the
  * Apps list so it doesn't get lost after nine toggle rows. The shape is
@@ -260,13 +267,10 @@ function AppsPageLinkRow({
       onClick={onClick}
       className="flex items-center gap-6 border-t border-lyra-border-subtle px-4 py-3 text-left first:border-t-0 hover:bg-lyra-state-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-lyra-border-focus"
     >
-      <span className="flex w-[220px] flex-shrink-0 flex-col gap-0.5">
-        <span className="text-[14px] font-bold leading-5 text-lyra-fg-default">{label}</span>
-        <span className="lyra-body-sm text-lyra-fg-secondary">{description}</span>
+      <span className="w-[220px] flex-shrink-0 text-[14px] font-bold leading-5 text-lyra-fg-default">
+        {label}
       </span>
-      <span className="flex flex-1 items-center justify-end">
-        <ChevronRight className="h-4 w-4 text-lyra-fg-secondary" strokeWidth={1.5} />
-      </span>
+      <span className="lyra-body-sm flex-1 text-lyra-fg-secondary">{description}</span>
     </button>
   );
 }
