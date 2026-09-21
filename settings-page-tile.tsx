@@ -187,11 +187,15 @@ function GovernanceIcon({ governance, muted }: { governance: Governance; muted?:
  * status icon like `GovernanceIcon` before it. */
 function TonePreviewButton({
   tone,
-  label,
+  ariaLabel,
   disabled,
 }: {
   tone: string;
-  label: string;
+  /** Full accessible name for the button, e.g. "Preview New Voice Call
+   * tone" or "Preview Ringtone" -- composed by the caller rather than
+   * templated in here, since "Preview Ringtone tone" reads as a
+   * duplicated word once "Ringtone" is itself the sound's name. */
+  ariaLabel: string;
   disabled?: boolean;
 }) {
   return (
@@ -200,7 +204,7 @@ function TonePreviewButton({
         type="button"
         disabled={disabled}
         onClick={() => playTonePreview(tone)}
-        aria-label={`Preview ${label} tone`}
+        aria-label={ariaLabel}
         className={cn(
           "flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lyra-xs border transition-colors",
           disabled
@@ -365,7 +369,10 @@ export function LoginVoicePreferencesTab() {
         governance={ringtoneGov}
         onGovernanceChange={setRingtoneGov}
         componentUsedControl={
-          <Select options={RINGTONE_OPTIONS} value={ringtone} onValueChange={setRingtone} className="w-full" />
+          <>
+            <Select options={RINGTONE_OPTIONS} value={ringtone} onValueChange={setRingtone} className="w-full" />
+            <TonePreviewButton tone={ringtone} ariaLabel="Preview Ringtone" />
+          </>
         }
       />
       <GovernanceRow
@@ -525,7 +532,7 @@ export function AVNotificationsTab() {
               />
               <TonePreviewButton
                 tone={audioTone[evt.key]}
-                label={evt.label}
+                ariaLabel={`Preview ${evt.label} tone`}
                 disabled={!audioOn[evt.key]}
               />
             </>
