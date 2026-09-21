@@ -1,6 +1,6 @@
 import * as React from "react";
 import { useState, useRef, useEffect, useMemo } from "react";
-import { Box, CheckCircle2, MinusCircle, Trash2, X } from "lucide-react";
+import { Box, CheckCircle2, ChevronRight, MinusCircle, Trash2, X } from "lucide-react";
 import {
   cn,
   AdminShell,
@@ -242,9 +242,14 @@ SettingsFieldRow.displayName = "SettingsFieldRow";
  * Apps table's other rows rather than a taller, differently-shaped one.
  * The description is left as plain secondary text, not link-styled —
  * with the whole row already clickable, underlining just the caption
- * would suggest only that part responds to a click. No trailing chevron
- * either, per the same call: pinned to the far right, it was too far
- * from the label to register.
+ * would suggest only that part responds to a click.
+ *
+ * The "there's something to click here" signal is a small, muted
+ * chevron sitting right next to the label instead of pinned to the
+ * row's far edge (where it used to live, and read as disconnected from
+ * the label it was meant to reinforce) — anchoring it to the label ties
+ * the cue to the one piece of text every glance at the row lands on
+ * first.
  *
  * Currently used for one row (Agent Settings Page), pinned first in the
  * Apps list so it doesn't get lost after nine toggle rows. The shape is
@@ -267,8 +272,9 @@ function AppsPageLinkRow({
       onClick={onClick}
       className="flex items-center gap-6 border-t border-lyra-border-subtle px-4 py-3 text-left first:border-t-0 hover:bg-lyra-state-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-lyra-border-focus"
     >
-      <span className="w-[220px] flex-shrink-0 text-[14px] font-bold leading-5 text-lyra-fg-default">
+      <span className="flex w-[220px] flex-shrink-0 items-center gap-1 text-[14px] font-bold leading-5 text-lyra-fg-default">
         {label}
+        <ChevronRight className="h-3 w-3 text-lyra-fg-disabled" strokeWidth={2} aria-hidden="true" />
       </span>
       <span className="lyra-body-sm flex-1 text-lyra-fg-secondary">{description}</span>
     </button>
