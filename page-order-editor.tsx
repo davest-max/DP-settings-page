@@ -1,7 +1,7 @@
 import * as React from "react";
 import { useEffect, useState } from "react";
-import { EyeOff, GripVertical, X } from "lucide-react";
-import { cn, Button, Chip } from "../lyra-ui/src";
+import { ArrowDown, ArrowUp, EyeOff, GripVertical, X } from "lucide-react";
+import { cn, Button, Chip, Tooltip } from "../lyra-ui/src";
 
 /**
  * AW-61857 — "set the order of Quick Bar / App Space pages, and whether
@@ -90,14 +90,59 @@ function SectionLabel({ children }: { children: React.ReactNode }) {
   );
 }
 
+/** Keyboard-reachable alternative to dragging: moves a row one step up or
+ * down without needing a mouse. Sits at opacity-0 at rest and reveals on
+ * hover/focus (`group-hover`/`group-focus-within` on the row, plus its own
+ * `focus-visible` so Tab always shows it even with the mouse elsewhere) —
+ * kept out of the way at rest, but never mouse-only: a disabled end (top of
+ * Shown, bottom of the last section) still renders, just grayed out, so the
+ * boundary is visible rather than the control disappearing. */
+function RowMoveButton({
+  direction,
+  disabled,
+  onMove,
+}: {
+  direction: "up" | "down";
+  disabled: boolean;
+  onMove: () => void;
+}) {
+  const Icon = direction === "up" ? ArrowUp : ArrowDown;
+  const label = direction === "up" ? "Move up" : "Move down";
+  return (
+    <Tooltip content={label} placement="top" asLabel disabled={disabled}>
+      <button
+        type="button"
+        disabled={disabled}
+        onClick={(e) => {
+          e.stopPropagation();
+          onMove();
+        }}
+        className={cn(
+          "flex h-6 w-6 shrink-0 items-center justify-center rounded-lyra-xs border transition-colors",
+          "opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 focus-visible:opacity-100",
+          disabled
+            ? "cursor-not-allowed border-lyra-border-subtle text-lyra-fg-disabled"
+            : "border-lyra-border-subtle text-lyra-fg-secondary hover:bg-lyra-state-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-lyra-border-focus"
+        )}
+      >
+        <Icon className="h-3.5 w-3.5" strokeWidth={1.5} aria-hidden="true" />
+      </button>
+    </Tooltip>
+  );
+}
+
 function PageOrderRow({
   item,
   isDragging,
   isDragOver,
   isHome,
+  canMoveUp,
+  canMoveDown,
   onDragStart,
   onDragEnter,
   onDragEnd,
+  onMoveUp,
+  onMoveDown,
 }: {
   item: PageOrderItem;
   isDragging: boolean;
@@ -106,9 +151,16 @@ function PageOrderRow({
    * page agents land on at login. Derived from live order, not stored,
    * so it always follows the top row through a drag (see `PageOrderList`). */
   isHome?: boolean;
+  /** False only for the very first row overall (top of Shown) / very last
+   * row overall (bottom of More, or bottom of Shown if More is empty) —
+   * everything else can move one step further. */
+  canMoveUp: boolean;
+  canMoveDown: boolean;
   onDragStart: () => void;
   onDragEnter: () => void;
   onDragEnd: () => void;
+  onMoveUp: () => void;
+  onMoveDown: () => void;
 }) {
   return (
     <div
@@ -118,7 +170,7 @@ function PageOrderRow({
       onDragEnd={onDragEnd}
       onDragOver={(e) => e.preventDefault()}
       className={cn(
-        "flex items-center gap-3 border-b border-lyra-border-subtle bg-lyra-bg-surface-overlay px-4 py-2.5 last:border-b-0",
+        "group flex items-center gap-3 border-b border-lyra-border-subtle bg-lyra-bg-surface-overlay px-4 py-2.5 last:border-b-0",
         isDragging && "opacity-40",
         isDragOver && !isDragging && "bg-lyra-bg-active-subtle"
       )}
@@ -138,6 +190,10 @@ function PageOrderRow({
           Home
         </Chip>
       )}
+      <div className="flex items-center gap-1">
+        <RowMoveButton direction="up" disabled={!canMoveUp} onMove={onMoveUp} />
+        <RowMoveButton direction="down" disabled={!canMoveDown} onMove={onMoveDown} />
+      </div>
     </div>
   );
 }
@@ -175,6 +231,33 @@ export function PageOrderList({
   const [overKey, setOverKey] = useState<string | null>(null);
 
   const { shown, more, hidden } = partitionItems(items);
+  const renderOrder = [...shown, ...more];
+  const firstKey = renderOrder[0]?.key;
+  const lastKey = renderOrder[renderOrder.length - 1]?.key;
+
+  /** Keyboard equivalent of dragging a row one slot up/down. Always a
+   * straight swap with whatever currently sits in the adjacent slot —
+   * each side simply takes over the other's section (and therefore
+   * band), so a swap across the Shown/More boundary trades exactly one
+   * item for one item and the 8-item cap never needs a separate bump
+   * (unlike `dropInto`, which inserts rather than swaps and does need one). */
+  function moveItem(key: string, direction: "up" | "down") {
+    const idx = renderOrder.findIndex((i) => i.key === key);
+    if (idx === -1) return;
+    const targetIdx = direction === "up" ? idx - 1 : idx + 1;
+    if (targetIdx < 0 || targetIdx >= renderOrder.length) return;
+
+    const sectionOfSlot = (i: number): "shown" | "more" =>
+      i < shown.length ? "shown" : "more";
+
+    const next = [...renderOrder];
+    const dragged = next[idx];
+    const target = next[targetIdx];
+    next[idx] = { ...target, band: sectionOfSlot(idx) === "more" ? "more" : undefined };
+    next[targetIdx] = { ...dragged, band: sectionOfSlot(targetIdx) === "more" ? "more" : undefined };
+
+    onItemsChange([...next, ...hidden]);
+  }
 
   function dropInto(section: "shown" | "more") {
     if (!dragKey) return;
@@ -213,12 +296,16 @@ export function PageOrderList({
       item,
       isDragging: dragKey === item.key,
       isDragOver: overKey === item.key,
+      canMoveUp: item.key !== firstKey,
+      canMoveDown: item.key !== lastKey,
       onDragStart: () => setDragKey(item.key),
       onDragEnter: () => setOverKey(item.key),
       onDragEnd: () => {
         setDragKey(null);
         setOverKey(null);
       },
+      onMoveUp: () => moveItem(item.key, "up"),
+      onMoveDown: () => moveItem(item.key, "down"),
     };
   }
 
