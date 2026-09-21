@@ -94,6 +94,7 @@ function PageOrderRow({
   item,
   isDragging,
   isDragOver,
+  isHome,
   onDragStart,
   onDragEnter,
   onDragEnd,
@@ -101,6 +102,10 @@ function PageOrderRow({
   item: PageOrderItem;
   isDragging: boolean;
   isDragOver: boolean;
+  /** True for whichever row currently sits first in Shown — that's the
+   * page agents land on at login. Derived from live order, not stored,
+   * so it always follows the top row through a drag (see `PageOrderList`). */
+  isHome?: boolean;
   onDragStart: () => void;
   onDragEnter: () => void;
   onDragEnd: () => void;
@@ -123,7 +128,16 @@ function PageOrderRow({
         strokeWidth={1.5}
         aria-hidden="true"
       />
-      <span className="text-[14px] text-lyra-fg-default">{item.label}</span>
+      <span className="flex-1 text-[14px] text-lyra-fg-default">{item.label}</span>
+      {isHome && (
+        <Chip
+          color="blue"
+          variant="subtle"
+          className="px-1.5 py-0 text-[10px] font-semibold uppercase leading-4 tracking-wide"
+        >
+          Home
+        </Chip>
+      )}
     </div>
   );
 }
@@ -221,8 +235,8 @@ export function PageOrderList({
           dropInto("shown");
         }}
       >
-        {shown.map((item) => (
-          <PageOrderRow key={item.key} {...rowProps(item)} />
+        {shown.map((item, index) => (
+          <PageOrderRow key={item.key} {...rowProps(item)} isHome={index === 0} />
         ))}
         {shown.length === 0 && (
           <div className="px-4 py-3 text-center lyra-body-sm text-lyra-fg-disabled">
