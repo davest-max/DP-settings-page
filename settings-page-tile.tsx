@@ -1,6 +1,6 @@
 import * as React from "react";
 import { useState } from "react";
-import { Box, Eye, EyeOff, Lock } from "lucide-react";
+import { Box, Eye, EyeOff, Lock, Volume2 } from "lucide-react";
 import {
   cn,
   AdminShell,
@@ -12,10 +12,12 @@ import {
   Select,
   Slider,
   ContentArea,
+  Tooltip,
   type SelectOption,
   type TreeMenuItem,
 } from "../lyra-ui/src";
 import { AppShellHeader } from "./app-header";
+import { playTonePreview } from "./tone-preview";
 
 /**
  * AW-35954 exploration — "Agent Settings Page" tile.
@@ -152,6 +154,42 @@ function GovernanceIcon({ governance, muted }: { governance: Governance; muted?:
     return <Lock className={cls} strokeWidth={1.75} aria-hidden="true" />;
   }
   return <Eye className={cls} strokeWidth={1.75} aria-hidden="true" />;
+}
+
+/* ── Plays the row's currently-selected Tone (see `tone-preview.ts`).
+ * The shared `Select` has no per-option preview slot, so this can't sit
+ * inside the open dropdown next to "Tone 1"/"Tone 2"/etc. — it previews
+ * whichever tone is already chosen for the row instead, same as clicking
+ * it after picking a new one. Sits right after the Select rather than
+ * before, reading as an action on the value the Select shows, not a
+ * status icon like `GovernanceIcon` before it. */
+function TonePreviewButton({
+  tone,
+  label,
+  disabled,
+}: {
+  tone: string;
+  label: string;
+  disabled?: boolean;
+}) {
+  return (
+    <Tooltip content="Preview tone" placement="top" asLabel disabled={disabled}>
+      <button
+        type="button"
+        disabled={disabled}
+        onClick={() => playTonePreview(tone)}
+        aria-label={`Preview ${label} tone`}
+        className={cn(
+          "flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lyra-xs border transition-colors",
+          disabled
+            ? "cursor-not-allowed border-lyra-border-subtle text-lyra-fg-disabled"
+            : "border-lyra-border-subtle text-lyra-fg-secondary hover:bg-lyra-state-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-lyra-border-focus"
+        )}
+      >
+        <Volume2 className="h-3.5 w-3.5" strokeWidth={1.5} aria-hidden="true" />
+      </button>
+    </Tooltip>
+  );
 }
 
 /* ── Table header row. Visibility holds a Switch for any row that has
@@ -454,14 +492,21 @@ export function AVNotificationsTab() {
           governanceOptions={GOVERNANCE_OPTIONS_NO_HIDDEN}
           governanceDisabled={!audioOn[evt.key]}
           componentUsedControl={
-            <Select
-              options={TONE_OPTIONS}
-              value={audioTone[evt.key]}
-              onValueChange={(v) => setAudioTone((p) => ({ ...p, [evt.key]: v }))}
-              className="w-full"
-              disabled={!audioOn[evt.key]}
-              aria-label={`${evt.label} tone`}
-            />
+            <>
+              <Select
+                options={TONE_OPTIONS}
+                value={audioTone[evt.key]}
+                onValueChange={(v) => setAudioTone((p) => ({ ...p, [evt.key]: v }))}
+                className="w-full"
+                disabled={!audioOn[evt.key]}
+                aria-label={`${evt.label} tone`}
+              />
+              <TonePreviewButton
+                tone={audioTone[evt.key]}
+                label={evt.label}
+                disabled={!audioOn[evt.key]}
+              />
+            </>
           }
         >
           <Switch
