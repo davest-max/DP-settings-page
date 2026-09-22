@@ -238,6 +238,19 @@ function GovernanceRow({
 }) {
   const hasComponentEnabled = componentEnabled !== undefined;
   const gatedOff = hasComponentEnabled && !componentEnabled;
+  /* Editable requires Visible — an agent can't be given edit access to
+   * something they can't see. Turning Visible off while Editable is on
+   * also drops governance back to "locked" so the two never go stale
+   * relative to each other (editable=true sitting under visible=false,
+   * ready to reappear the moment visibility comes back on). */
+  const editableDisabled = gatedOff || !visible;
+  const handleVisibleToggle = () => {
+    const next = !visible;
+    onVisibleChange(next);
+    if (!next && governance === "editable") {
+      onGovernanceChange("locked");
+    }
+  };
   return (
     <div className="flex items-center gap-6 border-t border-lyra-border-subtle px-4 py-3 first:border-t-0">
       <span className="w-[190px] flex-shrink-0 text-[14px] font-bold leading-5 text-lyra-fg-default">
@@ -258,14 +271,14 @@ function GovernanceRow({
         <ToggleChip
           label="Agent Visible"
           selected={visible}
-          onToggle={() => onVisibleChange(!visible)}
+          onToggle={handleVisibleToggle}
           disabled={gatedOff}
         />
         <ToggleChip
           label="Agent Editable"
           selected={governance === "editable"}
           onToggle={() => onGovernanceChange(governance === "editable" ? "locked" : "editable")}
-          disabled={gatedOff}
+          disabled={editableDisabled}
         />
       </div>
     </div>
