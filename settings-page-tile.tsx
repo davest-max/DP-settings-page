@@ -1,6 +1,6 @@
 import * as React from "react";
 import { useState } from "react";
-import { Box, Check, Lock, Volume2 } from "lucide-react";
+import { Box, Volume2 } from "lucide-react";
 import {
   cn,
   AdminShell,
@@ -134,59 +134,13 @@ const SEND_WITH_ENTER_OPTIONS: SelectOption[] = [
  * note above. ── */
 type Governance = "editable" | "locked";
 
-/* ── Agent Access as a single clickable chip, reusing the exact
- * "Agent Editable" ToggleChip pattern already on this page (the Quick
- * Bar row on Create Desktop Profile) rather than a second visual
- * language for the same idea. There's nothing to pick from a list any
- * more now that Agent Access is down to 2 states, so a click that
- * toggles directly between them replaces the dropdown outright. Locked
- * keeps the warning-amber color the old icon used, so the column still
- * reads as a strip of color at a glance; `disabled` (Visibility or
- * Component Enabled is off) drops to plain gray, same as before. */
-function AgentAccessChip({
-  governance,
-  onGovernanceChange,
-  disabled,
-  ariaLabel,
-}: {
-  governance: Governance;
-  onGovernanceChange: (v: Governance) => void;
-  disabled?: boolean;
-  ariaLabel: string;
-}) {
-  const editable = governance === "editable";
-  const Icon = editable ? Check : Lock;
-  return (
-    <button
-      type="button"
-      role="switch"
-      aria-checked={editable}
-      aria-label={ariaLabel}
-      disabled={disabled}
-      onClick={() => onGovernanceChange(editable ? "locked" : "editable")}
-      className={cn(
-        "inline-flex h-6 flex-shrink-0 items-center gap-1 whitespace-nowrap rounded-lyra-md border px-2 lyra-body-sm transition-colors",
-        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-lyra-border-focus focus-visible:ring-offset-1",
-        disabled
-          ? "cursor-not-allowed border-lyra-border-subtle bg-lyra-bg-surface-container-subtle text-lyra-fg-disabled"
-          : editable
-          ? "border-lyra-border-active bg-lyra-bg-active-subtle text-lyra-fg-active-strong hover:bg-lyra-state-hover-active-subtle active:bg-lyra-state-pressed-active-subtle"
-          : "border-lyra-status-warning-strong bg-lyra-status-warning-subtle text-lyra-status-warning-strong hover:opacity-90"
-      )}
-    >
-      <Icon className="h-3 w-3 flex-shrink-0" strokeWidth={2.5} aria-hidden="true" />
-      {editable ? "Agent Editable" : "Locked"}
-    </button>
-  );
-}
-
 /* ── Plays the row's currently-selected Tone (see `tone-preview.ts`).
  * The shared `Select` has no per-option preview slot, so this can't sit
  * inside the open dropdown next to "Tone 1"/"Tone 2"/etc. — it previews
  * whichever tone is already chosen for the row instead, same as clicking
  * it after picking a new one. Sits right after the Select rather than
  * before, reading as an action on the value the Select shows, not a
- * status icon like `AgentAccessChip` before it. */
+ * status chip like the ones in the Agent Access column. */
 function TonePreviewButton({
   tone,
   ariaLabel,
@@ -255,15 +209,14 @@ function GovernanceTableHeader() {
  * `onComponentEnabledChange` are left undefined for a row with no
  * existence question to ask — the column renders blank but still holds
  * its place, so every row's other columns line up regardless. Agent
- * Access holds 2 chips together — Agent Visible (a `ToggleChip`) and
- * Agent Editable/Locked (`AgentAccessChip`) — rather than 2 separate
- * columns, so the two agent-facing decisions read as one answer instead
- * of a switch and a chip in unrelated-looking columns. Cascade:
- * Component Enabled off disables both chips together (there's nothing
- * left to configure); Visibility off disables only the Agent Editable/
- * Locked chip — Component Setting stays editable, since the admin is
- * often pre-setting what the value *will* be once visibility is turned
- * back on, not just reacting to what's visible right now. */
+ * Access holds 2 plain `ToggleChip`s together — Agent Visible and Agent
+ * Editable — the same independently-selectable pill used for the
+ * Directory App filters on Create Desktop Profile, not a special
+ * two-color control. The two chips are deliberately independent of each
+ * other: toggling one never disables or changes the other. The only
+ * thing that gates them is Component Enabled — off disables both
+ * together, since there's nothing left to configure once the component
+ * itself isn't there. */
 function GovernanceRow({
   label,
   componentEnabled,
@@ -285,8 +238,6 @@ function GovernanceRow({
 }) {
   const hasComponentEnabled = componentEnabled !== undefined;
   const gatedOff = hasComponentEnabled && !componentEnabled;
-  const governanceDisabled = gatedOff || !visible;
-
   return (
     <div className="flex items-center gap-4 border-t border-lyra-border-subtle px-4 py-3 first:border-t-0">
       <span className="w-[190px] flex-shrink-0 text-[14px] font-bold leading-5 text-lyra-fg-default">
@@ -310,11 +261,11 @@ function GovernanceRow({
           onToggle={() => onVisibleChange(!visible)}
           disabled={gatedOff}
         />
-        <AgentAccessChip
-          governance={governance}
-          onGovernanceChange={onGovernanceChange}
-          disabled={governanceDisabled}
-          ariaLabel={`${label} — agent access`}
+        <ToggleChip
+          label="Agent Editable"
+          selected={governance === "editable"}
+          onToggle={() => onGovernanceChange(governance === "editable" ? "locked" : "editable")}
+          disabled={gatedOff}
         />
       </div>
     </div>
