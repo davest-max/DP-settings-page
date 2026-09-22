@@ -220,16 +220,17 @@ function TonePreviewButton({
   );
 }
 
-/* ── Table header row — the 4 columns from the model note above, always
- * in this order, always present, blank where a given row has nothing
- * for that column (Component Enabled is blank on all but a handful of
- * rows where an on/off gates a dependent value; Component Setting is a
- * plain descriptive line for Jabra Call Control, which has no single
- * value to show). Component Setting and Component Enabled sit together
- * on the left (what the admin is configuring); Agent Visibility and
- * Agent Access sit together on the right (what the agent experiences),
- * with a little extra space at that seam so the two halves of the row
- * read as separate questions rather than one long strip of controls. ── */
+/* ── Table header row — Setting, Component Enabled, Component Setting,
+ * and Agent Access, always in this order, always present, blank where a
+ * given row has nothing for that column (Component Enabled is blank on
+ * all but a handful of rows where an on/off gates a dependent value;
+ * Component Setting is a plain descriptive line for Jabra Call Control,
+ * which has no single value to show). Agent Access now holds 2 chips —
+ * Agent Visible and Agent Editable/Locked — side by side rather than 2
+ * separate columns: they're both decisions about what the agent
+ * experiences, and sitting them right next to each other under one
+ * header reads as one combined "what can the agent do" answer instead
+ * of 2 unrelated-looking controls. ── */
 function GovernanceTableHeader() {
   return (
     <div className="flex items-center gap-4 border-b border-lyra-border-subtle bg-lyra-bg-surface-container-subtle px-4 py-2">
@@ -242,30 +243,27 @@ function GovernanceTableHeader() {
       <span className="w-[330px] flex-shrink-0 text-[11px] font-semibold uppercase tracking-wide text-lyra-fg-secondary">
         Component Setting
       </span>
-      <span className="ml-4 w-[170px] flex-shrink-0 text-[11px] font-semibold uppercase tracking-wide text-lyra-fg-secondary">
-        Agent Visibility
-      </span>
-      <span className="w-[200px] flex-shrink-0 text-[11px] font-semibold uppercase tracking-wide text-lyra-fg-secondary">
+      <span className="w-[320px] flex-shrink-0 text-[11px] font-semibold uppercase tracking-wide text-lyra-fg-secondary">
         Agent Access
       </span>
     </div>
   );
 }
 
-/* ── One governed setting: name, then the 4 columns from the model note
- * above, in reading order Component Enabled → Component Setting →
- * Agent Visibility → Agent Access. `componentEnabled`/
+/* ── One governed setting: name, then Component Enabled, Component
+ * Setting, and Agent Access, in that order. `componentEnabled`/
  * `onComponentEnabledChange` are left undefined for a row with no
  * existence question to ask — the column renders blank but still holds
  * its place, so every row's other columns line up regardless. Agent
- * Visibility is a `ToggleChip` ("Agent Visible"), same shape as the
- * Agent Access chip beside it, since both are decisions about what the
- * agent experiences rather than what the admin is configuring. Cascade:
- * Component Enabled off disables Visibility, Value, and Agent Access
- * together (there's nothing left to configure); Visibility off disables
- * only Agent Access — Value stays editable, since the admin is often
- * pre-setting what the value *will* be once visibility is turned back
- * on, not just reacting to what's visible right now. */
+ * Access holds 2 chips together — Agent Visible (a `ToggleChip`) and
+ * Agent Editable/Locked (`AgentAccessChip`) — rather than 2 separate
+ * columns, so the two agent-facing decisions read as one answer instead
+ * of a switch and a chip in unrelated-looking columns. Cascade:
+ * Component Enabled off disables both chips together (there's nothing
+ * left to configure); Visibility off disables only the Agent Editable/
+ * Locked chip — Component Setting stays editable, since the admin is
+ * often pre-setting what the value *will* be once visibility is turned
+ * back on, not just reacting to what's visible right now. */
 function GovernanceRow({
   label,
   componentEnabled,
@@ -305,15 +303,13 @@ function GovernanceRow({
         )}
       </div>
       <div className="flex w-[330px] flex-shrink-0 items-center gap-2">{value}</div>
-      <div className="ml-4 flex w-[170px] flex-shrink-0 items-center">
+      <div className="flex w-[320px] flex-shrink-0 items-center gap-2">
         <ToggleChip
           label="Agent Visible"
           selected={visible}
           onToggle={() => onVisibleChange(!visible)}
           disabled={gatedOff}
         />
-      </div>
-      <div className="flex w-[200px] flex-shrink-0 items-center">
         <AgentAccessChip
           governance={governance}
           onGovernanceChange={onGovernanceChange}
