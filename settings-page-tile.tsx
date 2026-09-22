@@ -430,54 +430,50 @@ export function LoginVoicePreferencesTab() {
           />
         }
       />
-      {/* Mic/Speaker Noise Cancellation's Value column holds two controls
-       * bundled together: the on/off Switch is the setting's actual value,
-       * and the Sensitivity Slider is a dependent second value that only
-       * means anything once that Switch is on — so the Slider disables off
-       * its own Switch, same as the real app (verified live), regardless
-       * of Visibility or Agent Access. */}
+      {/* Mic/Speaker Noise Cancellation's on/off gates the Sensitivity
+       * slider, same shape as the A/V Notification rows' on/off gating
+       * their Tone picker — so it's Component Enabled, not Value, and
+       * Value holds only the Sensitivity slider that's left. */}
       <GovernanceRow
         label="Microphone Noise Cancellation"
+        componentEnabled={micNoiseCancel}
+        onComponentEnabledChange={setMicNoiseCancel}
         visible={micNoiseCancelVisible}
         onVisibleChange={setMicNoiseCancelVisible}
         governance={micNoiseCancelGov}
         onGovernanceChange={setMicNoiseCancelGov}
         value={
-          <>
-            <Switch size="sm" checked={micNoiseCancel} onCheckedChange={setMicNoiseCancel} aria-label="Microphone Noise Cancellation" />
-            <Slider
-              value={micSensitivity}
-              onChange={setMicSensitivity}
-              min={0}
-              max={100}
-              showTicks={false}
-              className="w-full"
-              disabled={!micNoiseCancel}
-              aria-label="Mic Sensitivity"
-            />
-          </>
+          <Slider
+            value={micSensitivity}
+            onChange={setMicSensitivity}
+            min={0}
+            max={100}
+            showTicks={false}
+            className="w-full"
+            disabled={!micNoiseCancel}
+            aria-label="Mic Sensitivity"
+          />
         }
       />
       <GovernanceRow
         label="Speaker Noise Cancellation"
+        componentEnabled={speakerNoiseCancel}
+        onComponentEnabledChange={setSpeakerNoiseCancel}
         visible={speakerNoiseCancelVisible}
         onVisibleChange={setSpeakerNoiseCancelVisible}
         governance={speakerNoiseCancelGov}
         onGovernanceChange={setSpeakerNoiseCancelGov}
         value={
-          <>
-            <Switch size="sm" checked={speakerNoiseCancel} onCheckedChange={setSpeakerNoiseCancel} aria-label="Speaker Noise Cancellation" />
-            <Slider
-              value={speakerSensitivity}
-              onChange={setSpeakerSensitivity}
-              min={0}
-              max={100}
-              showTicks={false}
-              className="w-full"
-              disabled={!speakerNoiseCancel}
-              aria-label="Speaker Sensitivity"
-            />
-          </>
+          <Slider
+            value={speakerSensitivity}
+            onChange={setSpeakerSensitivity}
+            min={0}
+            max={100}
+            showTicks={false}
+            className="w-full"
+            disabled={!speakerNoiseCancel}
+            aria-label="Speaker Sensitivity"
+          />
         }
       />
       <GovernanceRow
