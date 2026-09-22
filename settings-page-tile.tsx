@@ -1,6 +1,6 @@
 import * as React from "react";
 import { useState } from "react";
-import { Box, Eye, Lock, Volume2 } from "lucide-react";
+import { Box, Check, Lock, Volume2 } from "lucide-react";
 import {
   cn,
   AdminShell,
@@ -133,33 +133,49 @@ const SEND_WITH_ENTER_OPTIONS: SelectOption[] = [
  * note above. ── */
 type Governance = "editable" | "locked";
 
-const GOVERNANCE_OPTIONS: SelectOption[] = [
-  { value: "editable", label: "Agent Can Edit" },
-  { value: "locked", label: "Locked" },
-];
-
-/* ── Color-codes Agent Access so a whole column reads as a strip of
- * green/amber dots at a glance, instead of the same gray icon shape
- * repeated down every row. `muted` (the row's Visibility is off, or its
- * Component Enabled is off) drops back to plain gray so a genuinely
- * inert row doesn't compete for attention with the real states. */
-function GovernanceIcon({ governance, muted }: { governance: Governance; muted?: boolean }) {
-  const Icon = governance === "locked" ? Lock : Eye;
-  const swatchCls = muted
-    ? "bg-lyra-bg-surface-container-subtle text-lyra-fg-disabled"
-    : governance === "locked"
-    ? "bg-lyra-status-warning-subtle text-lyra-status-warning-strong"
-    : "bg-lyra-status-success-subtle text-lyra-status-success-strong";
-
+/* ── Agent Access as a single clickable chip, reusing the exact
+ * "Agent Editable" ToggleChip pattern already on this page (the Quick
+ * Bar row on Create Desktop Profile) rather than a second visual
+ * language for the same idea. There's nothing to pick from a list any
+ * more now that Agent Access is down to 2 states, so a click that
+ * toggles directly between them replaces the dropdown outright. Locked
+ * keeps the warning-amber color the old icon used, so the column still
+ * reads as a strip of color at a glance; `disabled` (Visibility or
+ * Component Enabled is off) drops to plain gray, same as before. */
+function AgentAccessChip({
+  governance,
+  onGovernanceChange,
+  disabled,
+  ariaLabel,
+}: {
+  governance: Governance;
+  onGovernanceChange: (v: Governance) => void;
+  disabled?: boolean;
+  ariaLabel: string;
+}) {
+  const editable = governance === "editable";
+  const Icon = editable ? Check : Lock;
   return (
-    <span
+    <button
+      type="button"
+      role="switch"
+      aria-checked={editable}
+      aria-label={ariaLabel}
+      disabled={disabled}
+      onClick={() => onGovernanceChange(editable ? "locked" : "editable")}
       className={cn(
-        "flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full",
-        swatchCls
+        "inline-flex h-6 flex-shrink-0 items-center gap-1 whitespace-nowrap rounded-lyra-md border px-2 lyra-body-sm transition-colors",
+        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-lyra-border-focus focus-visible:ring-offset-1",
+        disabled
+          ? "cursor-not-allowed border-lyra-border-subtle bg-lyra-bg-surface-container-subtle text-lyra-fg-disabled"
+          : editable
+          ? "border-lyra-border-active bg-lyra-bg-active-subtle text-lyra-fg-active-strong hover:bg-lyra-state-hover-active-subtle active:bg-lyra-state-pressed-active-subtle"
+          : "border-lyra-status-warning-strong bg-lyra-status-warning-subtle text-lyra-status-warning-strong hover:opacity-90"
       )}
     >
-      <Icon className="h-3 w-3" strokeWidth={2} aria-hidden="true" />
-    </span>
+      <Icon className="h-3 w-3 flex-shrink-0" strokeWidth={2.5} aria-hidden="true" />
+      {editable ? "Agent Editable" : "Locked"}
+    </button>
   );
 }
 
@@ -169,7 +185,7 @@ function GovernanceIcon({ governance, muted }: { governance: Governance; muted?:
  * whichever tone is already chosen for the row instead, same as clicking
  * it after picking a new one. Sits right after the Select rather than
  * before, reading as an action on the value the Select shows, not a
- * status icon like `GovernanceIcon` before it. */
+ * status icon like `AgentAccessChip` before it. */
 function TonePreviewButton({
   tone,
   ariaLabel,
@@ -217,8 +233,8 @@ function GovernanceTableHeader() {
       <span className="w-[70px] flex-shrink-0 text-[11px] font-semibold uppercase tracking-wide text-lyra-fg-secondary">
         Component Enabled
       </span>
-      <span className="w-[80px] flex-shrink-0 text-[11px] font-semibold uppercase tracking-wide text-lyra-fg-secondary">
-        Visibility
+      <span className="ml-4 w-[80px] flex-shrink-0 text-[11px] font-semibold uppercase tracking-wide text-lyra-fg-secondary">
+        Agent Visibility
       </span>
       <span className="w-[330px] flex-shrink-0 text-[11px] font-semibold uppercase tracking-wide text-lyra-fg-secondary">
         Value
@@ -278,25 +294,22 @@ function GovernanceRow({
           />
         )}
       </div>
-      <div className="flex w-[80px] flex-shrink-0 items-center">
+      <div className="ml-4 flex w-[80px] flex-shrink-0 items-center">
         <Switch
           size="sm"
           checked={visible}
           onCheckedChange={onVisibleChange}
           disabled={gatedOff}
-          aria-label={`${label} — visibility`}
+          aria-label={`${label} — agent visibility`}
         />
       </div>
       <div className="flex w-[330px] flex-shrink-0 items-center gap-2">{value}</div>
-      <div className="flex w-[200px] flex-shrink-0 items-center gap-2">
-        <GovernanceIcon governance={governance} muted={governanceDisabled} />
-        <Select
-          options={GOVERNANCE_OPTIONS}
-          value={governance}
-          onValueChange={(v) => onGovernanceChange(v as Governance)}
-          className="w-full"
+      <div className="flex w-[200px] flex-shrink-0 items-center">
+        <AgentAccessChip
+          governance={governance}
+          onGovernanceChange={onGovernanceChange}
           disabled={governanceDisabled}
-          aria-label={`${label} — agent access`}
+          ariaLabel={`${label} — agent access`}
         />
       </div>
     </div>
