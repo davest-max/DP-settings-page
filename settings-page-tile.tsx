@@ -194,7 +194,7 @@ function GovernanceTableHeader() {
       <span className="w-[56px] flex-shrink-0 text-[11px] font-semibold uppercase tracking-wide text-lyra-fg-secondary">
         Component Enabled
       </span>
-      <span className="w-[240px] flex-shrink-0 text-[11px] font-semibold uppercase tracking-wide text-lyra-fg-secondary">
+      <span className="w-[264px] flex-shrink-0 text-[11px] font-semibold uppercase tracking-wide text-lyra-fg-secondary">
         Component Setting
       </span>
       <span className="w-[320px] flex-shrink-0 text-[11px] font-semibold uppercase tracking-wide text-lyra-fg-secondary">
@@ -253,7 +253,7 @@ function GovernanceRow({
           />
         )}
       </div>
-      <div className="flex w-[240px] flex-shrink-0 items-center gap-2">{value}</div>
+      <div className="flex w-[264px] flex-shrink-0 items-center gap-2">{value}</div>
       <div className="flex w-[320px] flex-shrink-0 items-center gap-2">
         <ToggleChip
           label="Agent Visible"
@@ -638,7 +638,7 @@ export function DisplayKeyboardTab() {
           governance={sortOrderGov}
           onGovernanceChange={setSortOrderGov}
           value={
-            <Select options={SORT_ORDER_OPTIONS} value={sortOrder} onValueChange={setSortOrder} className="w-[180px]" />
+            <Select options={SORT_ORDER_OPTIONS} value={sortOrder} onValueChange={setSortOrder} className="w-full" />
           }
         />
         <GovernanceRow
@@ -648,7 +648,7 @@ export function DisplayKeyboardTab() {
           governance={sendWithEnterGov}
           onGovernanceChange={setSendWithEnterGov}
           value={
-            <Select options={SEND_WITH_ENTER_OPTIONS} value={sendWithEnter} onValueChange={setSendWithEnter} className="w-[180px]" />
+            <Select options={SEND_WITH_ENTER_OPTIONS} value={sendWithEnter} onValueChange={setSendWithEnter} className="w-full" />
           }
         />
       </div>
