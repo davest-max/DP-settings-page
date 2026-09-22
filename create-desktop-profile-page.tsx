@@ -1,6 +1,6 @@
 import * as React from "react";
-import { useState, useRef, useEffect, useMemo } from "react";
-import { Box, CheckCircle2, ChevronRight, MinusCircle, Trash2, X } from "lucide-react";
+import { useState, useRef, useEffect } from "react";
+import { ArrowDown, ArrowUp, Box, CheckCircle2, ChevronRight, GripVertical, MinusCircle, Trash2, X } from "lucide-react";
 import {
   cn,
   AdminShell,
@@ -16,11 +16,11 @@ import {
   ContentArea,
   AiIcon,
   Chip,
+  Tooltip,
   type SelectOption,
   type TreeMenuItem,
 } from "../lyra-ui/src";
 import { ToggleChip, ToggleChipGroup, type ToggleChipOption } from "./toggle-chip";
-import { PageOrderEditorModal, type PageOrderItem } from "./page-order-editor";
 import {
   LoginVoicePreferencesTab,
   AVNotificationsTab,
@@ -107,47 +107,6 @@ const APPS: AppToggleDef[] = [
   { key: "reporting", label: "Reporting" },
   { key: "conversations", label: "Internal Chat" },
 ];
-
-/* AW-61857 — default page order for the "Allow Agents to Reorder & Pin
- * Quick Bar / App Space" row's editor. Meant to read as "every page that
- * could exist" (Dave's reference screenshot of the real Agent Workspace
- * nav), not just the 9 apps this one profile's Apps table happens to
- * toggle — so pages with no Apps-table entry anywhere in this prototype
- * (Directory, Settings, Help) are included too, defaulting into More
- * ellipsis (`band: "more"`) rather than competing for a rail slot right
- * away. "Internal Chat" from that screenshot is the same real page as
- * this profile's "conversations" app — the Apps table row above was
- * renamed "Internal Chat" too (was "Conversations"), so both stay in
- * sync; "Queue Counter" → "Queue" here is display-only in this list, the
- * Apps table row above still reads "Queue Counter" (the
- * `APPS_TABLE_PAGE_KEYS`/"desk" special cases below key off `key`, not
- * `label`, so neither rename affects anything else).
- * Order below is a starting point the editor is built to change, not a
- * rule. */
-const DEFAULT_PAGE_ORDER_ITEMS: PageOrderItem[] = [
-  { key: "desk", label: "Desk" },
-  { key: "search", label: "Search" },
-  { key: "contact-history", label: "Contact History" },
-  { key: "queue-counter", label: "Queue" },
-  { key: "directory", label: "Directory", band: "more" },
-  { key: "schedule", label: "Schedule" },
-  { key: "custom-workspace", label: "Custom Workspace" },
-  { key: "conversations", label: "Internal Chat" },
-  { key: "launch", label: "Launch" },
-  { key: "wem", label: "WEM" },
-  { key: "settings-nav", label: "Settings", band: "more" },
-  { key: "reporting", label: "Reporting" },
-  { key: "help", label: "Help", band: "more" },
-];
-
-/* Keys whose visibility is governed by a real Switch in the Apps table
- * above (see `apps` state) — Hidden is ONLY ever true for these (Dave's
- * call: only a page that's also a real Apps-table toggle can be hidden
- * at all), and only via that Switch, never by dragging in the Page
- * Order modal. Everything else in `DEFAULT_PAGE_ORDER_ITEMS` — "desk"
- * and the 3 no-Apps-table pages above — is always visible; the modal
- * only ever moves those between Shown and More. */
-const APPS_TABLE_PAGE_KEYS = new Set(APPS.map((app) => app.key));
 
 /* ── Assigned Teams — sample directory of real-looking teams (names
  * mirror the actual production "Add Team" picker), plus one standing in
@@ -280,6 +239,149 @@ function AppsPageLinkRow({
     </button>
   );
 }
+
+/* AW-61857 — the order agents see these apps in the rail/App Space is
+ * set right here, on the same rows that turn each app on and off, not
+ * in a separate modal or panel: Dave's call after the first pass (a
+ * standalone "Layout" screen away from the Apps section) didn't match
+ * what he actually wanted — reordering directly on the app section
+ * itself, no second destination. `AppMoveButton` + the drag handle
+ * below are a lighter version of the same up/down-button pattern
+ * `page-order-editor.tsx` already built for the modal this replaces;
+ * that file is left in place, unused, as a record of the earlier
+ * direction rather than deleted outright. */
+
+/** How many apps the real Agent Workspace rail can show before the rest
+ * fall into its "···" overflow menu — matches `RAIL_CAPACITY` in
+ * page-order-editor.tsx. Kept as its own constant here rather than
+ * imported so this section has no dependency on that now-unused file. */
+const APP_RAIL_CAPACITY = 8;
+
+/** Keyboard-reachable up/down reordering — visible at rest so the
+ * "these rows can be dragged" affordance doesn't rely on discovering the
+ * grip handle first, and doesn't disappear for anyone not using a mouse. */
+function AppMoveButton({
+  direction,
+  disabled,
+  onMove,
+}: {
+  direction: "up" | "down";
+  disabled: boolean;
+  onMove: () => void;
+}) {
+  const Icon = direction === "up" ? ArrowUp : ArrowDown;
+  const label = direction === "up" ? "Move up" : "Move down";
+  return (
+    <Tooltip content={label} placement="top" asLabel disabled={disabled}>
+      <button
+        type="button"
+        disabled={disabled}
+        onClick={(e) => {
+          e.stopPropagation();
+          onMove();
+        }}
+        className={cn(
+          "flex h-5 w-5 shrink-0 items-center justify-center rounded-lyra-xs border transition-colors",
+          disabled
+            ? "cursor-not-allowed border-transparent text-lyra-fg-disabled"
+            : "border-lyra-border-subtle text-lyra-fg-secondary hover:bg-lyra-state-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-lyra-border-focus"
+        )}
+      >
+        <Icon className="h-3 w-3" strokeWidth={1.5} aria-hidden="true" />
+      </button>
+    </Tooltip>
+  );
+}
+
+/** A one-line section break inside the Apps list marking where the rail
+ * hands off to the "···" overflow menu — recomputed live as rows get
+ * dragged or switched, so the cutoff always reflects the current order
+ * and the current on/off state, not a fixed count. Same shape as
+ * `SubGroupLabel` in settings-page-tile.tsx. */
+function AppsOverflowDivider() {
+  return (
+    <div className="border-t border-lyra-border-subtle bg-lyra-bg-surface-container-subtle px-4 py-1.5 text-[11px] font-semibold uppercase tracking-wide text-lyra-fg-secondary">
+      More ellipsis — beyond the {APP_RAIL_CAPACITY} shown in the rail
+    </div>
+  );
+}
+
+/** One Apps-table row, now also a reorderable one: a drag handle + the
+ * same up/down buttons `page-order-editor.tsx` used, sitting left of the
+ * label; the enable Switch stays exactly where every other row in this
+ * table already has it. Order changes and on/off stay two separate
+ * controls on one row rather than two separate rows in two places. */
+const AppOrderRow = React.forwardRef<
+  HTMLDivElement,
+  {
+    app: AppToggleDef;
+    enabled: boolean;
+    onToggle: (v: boolean) => void;
+    isDragging: boolean;
+    canMoveUp: boolean;
+    canMoveDown: boolean;
+    onDragStart: () => void;
+    onDragEnter: () => void;
+    onDragEnd: () => void;
+    onMoveUp: () => void;
+    onMoveDown: () => void;
+    reviewBadge?: React.ReactNode;
+    highlighted?: boolean;
+  }
+>(
+  (
+    {
+      app,
+      enabled,
+      onToggle,
+      isDragging,
+      canMoveUp,
+      canMoveDown,
+      onDragStart,
+      onDragEnter,
+      onDragEnd,
+      onMoveUp,
+      onMoveDown,
+      reviewBadge,
+      highlighted,
+    },
+    ref
+  ) => {
+    return (
+      <div
+        ref={ref}
+        draggable
+        onDragStart={onDragStart}
+        onDragEnter={onDragEnter}
+        onDragEnd={onDragEnd}
+        onDragOver={(e) => e.preventDefault()}
+        className={cn(
+          "flex items-center gap-6 border-t border-lyra-border-subtle px-4 py-3 first:border-t-0 transition-opacity",
+          isDragging && "opacity-40",
+          highlighted && "bg-lyra-bg-active-subtle ring-1 ring-inset ring-lyra-border-active"
+        )}
+      >
+        <div className={cn("flex w-[220px] flex-shrink-0 items-center gap-1.5", !enabled && "opacity-60")}>
+          <GripVertical
+            className="h-4 w-4 shrink-0 cursor-grab text-lyra-fg-disabled active:cursor-grabbing"
+            strokeWidth={1.5}
+            aria-hidden="true"
+          />
+          <div className="flex items-center gap-0.5">
+            <AppMoveButton direction="up" disabled={!canMoveUp} onMove={onMoveUp} />
+            <AppMoveButton direction="down" disabled={!canMoveDown} onMove={onMoveDown} />
+          </div>
+          <span className="text-[14px] font-bold leading-5 text-lyra-fg-default">{app.label}</span>
+          {reviewBadge}
+        </div>
+        <div className="flex flex-1 items-center">
+          <Switch size="sm" checked={enabled} onCheckedChange={onToggle} aria-label={app.label} />
+        </div>
+      </div>
+    );
+  }
+);
+AppOrderRow.displayName = "AppOrderRow";
 
 /* ── Small "needs review" flag for a row an AI agent drafted but
  * couldn't confidently finish alone — see the `aiDraftPreview` toggle in
@@ -538,23 +640,38 @@ export function CreateDesktopProfilePage({
    * capability's stated "today's default behavior", not a finalized spec. */
   const [typingIndicators, setTypingIndicators] = useState(true);
   const [quickBarAgentCustomization, setQuickBarAgentCustomization] = useState(true);
-  const [pageOrderItems, setPageOrderItems] = useState<PageOrderItem[]>(
-    DEFAULT_PAGE_ORDER_ITEMS
-  );
-  const [pageOrderEditorOpen, setPageOrderEditorOpen] = useState(false);
-  // Only Apps-table pages can ever be hidden (Dave's call) — everything
-  // else (Desk, Directory, Settings, Help) is always visible here,
-  // regardless of any `hidden` a stale save might carry.
-  const pageOrderItemsWithVisibility = useMemo<PageOrderItem[]>(
-    () =>
-      pageOrderItems.map((item) =>
-        APPS_TABLE_PAGE_KEYS.has(item.key)
-          ? { ...item, hidden: apps[item.key] === false }
-          : { ...item, hidden: false }
-      ),
-    [pageOrderItems, apps]
-  );
   const [screenPopAlwaysStealFocus, setScreenPopAlwaysStealFocus] = useState(false);
+
+  /* AW-61857 — the Apps list's own order, reorderable in place (see
+   * `AppOrderRow` above). Separate from `apps` (which app is on/off):
+   * an app keeps its position in this array even while switched off, so
+   * turning it back on doesn't lose whatever slot it was dragged to. */
+  const [appOrder, setAppOrder] = useState<string[]>(() => APPS.map((app) => app.key));
+  const [draggedAppKey, setDraggedAppKey] = useState<string | null>(null);
+  const orderedApps = appOrder.map((key) => APPS.find((app) => app.key === key)!);
+
+  function moveApp(key: string, direction: "up" | "down") {
+    setAppOrder((prev) => {
+      const idx = prev.indexOf(key);
+      const targetIdx = direction === "up" ? idx - 1 : idx + 1;
+      if (targetIdx < 0 || targetIdx >= prev.length) return prev;
+      const next = [...prev];
+      [next[idx], next[targetIdx]] = [next[targetIdx], next[idx]];
+      return next;
+    });
+  }
+
+  /* Reorders live as the dragged row passes over another one, rather
+   * than waiting for a drop — one less event to wire up, and it's the
+   * same live-reorder feel most drag-to-reorder lists already have. */
+  function dragAppOver(overKey: string) {
+    if (!draggedAppKey || draggedAppKey === overKey) return;
+    setAppOrder((prev) => {
+      const next = prev.filter((k) => k !== draggedAppKey);
+      next.splice(next.indexOf(overKey), 0, draggedAppKey);
+      return next;
+    });
+  }
 
   /* ── "Agent-drafted profile" preview ──
    * A sketch of what this screen looks like when it's showing a profile an
@@ -731,38 +848,66 @@ export function CreateDesktopProfilePage({
               />
             </div>
 
-            {/* ── Apps ── */}
+            {/* ── Apps ──
+             * AW-61857 — order lives here now, on the rows themselves
+             * (drag or the ▲▼ buttons), not behind a separate "Set page
+             * order" control. "Agent Editable" moved up into this
+             * section's own header since it's the one switch governing
+             * whether agents can reorder everything below it. */}
             <section>
-              <SectionHeader>Apps</SectionHeader>
+              <SectionHeader>
+                <div className="flex items-center justify-between">
+                  <span>Apps</span>
+                  <ToggleChip
+                    label="Agent Editable"
+                    selected={quickBarAgentCustomization}
+                    onToggle={() => setQuickBarAgentCustomization((v) => !v)}
+                  />
+                </div>
+              </SectionHeader>
+              <p className="border-x border-lyra-border-subtle bg-lyra-bg-surface-container-subtle px-4 py-2 lyra-body-sm text-lyra-fg-secondary">
+                Drag a row or use the arrows to set the order agents see these in — the switch controls whether an app shows at all.
+              </p>
               <div className="flex flex-col rounded-b-lyra-sm border border-lyra-border-subtle">
                 <AppsPageLinkRow
                   label="Agent Settings Page"
                   description="3 sections"
                   onClick={() => setTab("settings-page")}
                 />
-                {APPS.map((app) => {
-                  const isReviewItem = aiDraftPreview && app.key === "queue-counter";
-                  return (
-                    <SettingsFieldRow
-                      key={app.key}
-                      label={app.label}
-                      ref={isReviewItem ? queueCounterRowRef : undefined}
-                      highlighted={isReviewItem}
-                      reviewBadge={
-                        isReviewItem ? (
-                          <ReviewBadge note="Trainees may not need live Queue Counter visibility yet — confirm before enabling for this cohort." />
-                        ) : undefined
-                      }
-                    >
-                      <Switch
-                        size="sm"
-                        checked={apps[app.key]}
-                        onCheckedChange={(v) => setApps((prev) => ({ ...prev, [app.key]: v }))}
-                        aria-label={app.label}
-                      />
-                    </SettingsFieldRow>
-                  );
-                })}
+                {(() => {
+                  let shownCount = 0;
+                  return orderedApps.map((app, index) => {
+                    const enabled = apps[app.key];
+                    const isReviewItem = aiDraftPreview && app.key === "queue-counter";
+                    const startsOverflow = enabled && shownCount === APP_RAIL_CAPACITY;
+                    if (enabled) shownCount++;
+                    return (
+                      <React.Fragment key={app.key}>
+                        {startsOverflow && <AppsOverflowDivider />}
+                        <AppOrderRow
+                          app={app}
+                          enabled={enabled}
+                          onToggle={(v) => setApps((prev) => ({ ...prev, [app.key]: v }))}
+                          ref={isReviewItem ? queueCounterRowRef : undefined}
+                          highlighted={isReviewItem}
+                          reviewBadge={
+                            isReviewItem ? (
+                              <ReviewBadge note="Trainees may not need live Queue Counter visibility yet — confirm before enabling for this cohort." />
+                            ) : undefined
+                          }
+                          isDragging={draggedAppKey === app.key}
+                          canMoveUp={index > 0}
+                          canMoveDown={index < orderedApps.length - 1}
+                          onDragStart={() => setDraggedAppKey(app.key)}
+                          onDragEnter={() => dragAppOver(app.key)}
+                          onDragEnd={() => setDraggedAppKey(null)}
+                          onMoveUp={() => moveApp(app.key, "up")}
+                          onMoveDown={() => moveApp(app.key, "down")}
+                        />
+                      </React.Fragment>
+                    );
+                  });
+                })()}
               </div>
             </section>
 
@@ -866,26 +1011,12 @@ export function CreateDesktopProfilePage({
                     className="w-[220px]"
                   />
                 </SettingsFieldRow>
-                <SettingsFieldRow label="Allow Agents to Reorder & Pin Quick Bar / App Space">
-                  <div className="flex items-center gap-3">
-                    {/* AW-61857 — a chip instead of a plain toggle: "Agent
-                     * Editable" (selected) / not (unselected) is more
-                     * specific about what this actually controls than a
-                     * bare on/off switch was. */}
-                    <ToggleChip
-                      label="Agent Editable"
-                      selected={quickBarAgentCustomization}
-                      onToggle={() => setQuickBarAgentCustomization((v) => !v)}
-                    />
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setPageOrderEditorOpen(true)}
-                    >
-                      Set page order
-                    </Button>
-                  </div>
-                </SettingsFieldRow>
+                {/* AW-61857's row used to live here: an "Agent Editable"
+                 * chip + a "Set page order" button opening a modal. Both
+                 * moved up into the Apps section itself — the chip into
+                 * that section's header, the ordering into the rows
+                 * directly — so there's nothing left to configure from
+                 * this section for it. */}
                 <SettingsFieldRow label="Agent-to-Patron Typing Indicators">
                   <Switch
                     size="sm"
@@ -1068,23 +1199,6 @@ export function CreateDesktopProfilePage({
           </AdminShell>
       </ContentArea>
 
-      <PageOrderEditorModal
-        open={pageOrderEditorOpen}
-        items={pageOrderItemsWithVisibility}
-        onCancel={() => setPageOrderEditorOpen(false)}
-        onSave={(items) => {
-          // `hidden` is always Apps-table-derived (recomputed above), never
-          // worth persisting; only `band` (Shown vs. More) is real state.
-          setPageOrderItems(
-            items.map(({ key, label, band }) => ({
-              key,
-              label,
-              ...(band ? { band } : {}),
-            }))
-          );
-          setPageOrderEditorOpen(false);
-        }}
-      />
     </div>
   );
 }
