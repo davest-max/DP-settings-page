@@ -191,7 +191,7 @@ function GovernanceTableHeader() {
       <span className="w-[190px] flex-shrink-0 text-[11px] font-semibold uppercase tracking-wide text-lyra-fg-secondary">
         Setting
       </span>
-      <span className="w-[70px] flex-shrink-0 text-[11px] font-semibold uppercase tracking-wide text-lyra-fg-secondary">
+      <span className="w-[56px] flex-shrink-0 text-[11px] font-semibold uppercase tracking-wide text-lyra-fg-secondary">
         Component Enabled
       </span>
       <span className="w-[330px] flex-shrink-0 text-[11px] font-semibold uppercase tracking-wide text-lyra-fg-secondary">
@@ -243,7 +243,7 @@ function GovernanceRow({
       <span className="w-[190px] flex-shrink-0 text-[14px] font-bold leading-5 text-lyra-fg-default">
         {label}
       </span>
-      <div className="flex w-[70px] flex-shrink-0 items-center">
+      <div className="flex w-[56px] flex-shrink-0 items-center">
         {hasComponentEnabled && (
           <Switch
             size="sm"
