@@ -191,10 +191,10 @@ function GovernanceTableHeader() {
       <span className="w-[190px] flex-shrink-0 text-[11px] font-semibold uppercase tracking-wide text-lyra-fg-secondary">
         Setting
       </span>
-      <span className="w-[42px] flex-shrink-0 text-[11px] font-semibold uppercase tracking-wide text-lyra-fg-secondary">
+      <span className="w-[56px] flex-shrink-0 text-[11px] font-semibold uppercase tracking-wide text-lyra-fg-secondary">
         Component Enabled
       </span>
-      <span className="w-[330px] flex-shrink-0 text-[11px] font-semibold uppercase tracking-wide text-lyra-fg-secondary">
+      <span className="w-[240px] flex-shrink-0 text-[11px] font-semibold uppercase tracking-wide text-lyra-fg-secondary">
         Component Setting
       </span>
       <span className="w-[320px] flex-shrink-0 text-[11px] font-semibold uppercase tracking-wide text-lyra-fg-secondary">
@@ -243,7 +243,7 @@ function GovernanceRow({
       <span className="w-[190px] flex-shrink-0 text-[14px] font-bold leading-5 text-lyra-fg-default">
         {label}
       </span>
-      <div className="flex w-[42px] flex-shrink-0 items-center">
+      <div className="flex w-[56px] flex-shrink-0 items-center">
         {hasComponentEnabled && (
           <Switch
             size="sm"
@@ -253,7 +253,7 @@ function GovernanceRow({
           />
         )}
       </div>
-      <div className="flex w-[330px] flex-shrink-0 items-center gap-2">{value}</div>
+      <div className="flex w-[240px] flex-shrink-0 items-center gap-2">{value}</div>
       <div className="flex w-[320px] flex-shrink-0 items-center gap-2">
         <ToggleChip
           label="Agent Visible"
@@ -333,7 +333,7 @@ export function LoginVoicePreferencesTab() {
         onVisibleChange={setVolumeVisible}
         governance={volumeGov}
         onGovernanceChange={setVolumeGov}
-        value={<Slider value={volume} onChange={setVolume} min={0} max={100} showTicks={false} className="w-full" />}
+        value={<Slider value={volume} onChange={setVolume} min={0} max={100} showTicks={false} className="w-[180px]" />}
       />
       <GovernanceRow
         label="Auto Accept"
@@ -351,7 +351,7 @@ export function LoginVoicePreferencesTab() {
         onGovernanceChange={setRingtoneGov}
         value={
           <>
-            <Select options={RINGTONE_OPTIONS} value={ringtone} onValueChange={setRingtone} className="w-full" />
+            <Select options={RINGTONE_OPTIONS} value={ringtone} onValueChange={setRingtone} className="w-[180px]" />
             <TonePreviewButton tone={ringtone} ariaLabel="Preview Ringtone" />
           </>
         }
@@ -367,7 +367,7 @@ export function LoginVoicePreferencesTab() {
             options={SECONDARY_DEVICE_OPTIONS}
             value={secondaryDevice}
             onValueChange={setSecondaryDevice}
-            className="w-full"
+            className="w-[180px]"
           />
         }
       />
@@ -382,7 +382,7 @@ export function LoginVoicePreferencesTab() {
             options={SECONDARY_DELAY_OPTIONS}
             value={secondaryDelay}
             onValueChange={setSecondaryDelay}
-            className="w-full"
+            className="w-[180px]"
           />
         }
       />
@@ -405,7 +405,7 @@ export function LoginVoicePreferencesTab() {
             min={0}
             max={100}
             showTicks={false}
-            className="w-full"
+            className="w-[180px]"
             disabled={!micNoiseCancel}
             aria-label="Mic Sensitivity"
           />
@@ -426,7 +426,7 @@ export function LoginVoicePreferencesTab() {
             min={0}
             max={100}
             showTicks={false}
-            className="w-full"
+            className="w-[180px]"
             disabled={!speakerNoiseCancel}
             aria-label="Speaker Sensitivity"
           />
@@ -523,7 +523,7 @@ export function AVNotificationsTab() {
                 options={TONE_OPTIONS}
                 value={audioTone[evt.key]}
                 onValueChange={(v) => setAudioTone((p) => ({ ...p, [evt.key]: v }))}
-                className="w-full"
+                className="w-[180px]"
                 disabled={!audioEnabled[evt.key]}
                 aria-label={`${evt.label} tone`}
               />
@@ -638,7 +638,7 @@ export function DisplayKeyboardTab() {
           governance={sortOrderGov}
           onGovernanceChange={setSortOrderGov}
           value={
-            <Select options={SORT_ORDER_OPTIONS} value={sortOrder} onValueChange={setSortOrder} className="w-full" />
+            <Select options={SORT_ORDER_OPTIONS} value={sortOrder} onValueChange={setSortOrder} className="w-[180px]" />
           }
         />
         <GovernanceRow
@@ -648,7 +648,7 @@ export function DisplayKeyboardTab() {
           governance={sendWithEnterGov}
           onGovernanceChange={setSendWithEnterGov}
           value={
-            <Select options={SEND_WITH_ENTER_OPTIONS} value={sendWithEnter} onValueChange={setSendWithEnter} className="w-full" />
+            <Select options={SEND_WITH_ENTER_OPTIONS} value={sendWithEnter} onValueChange={setSendWithEnter} className="w-[180px]" />
           }
         />
       </div>
