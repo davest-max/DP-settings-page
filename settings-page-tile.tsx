@@ -187,7 +187,7 @@ function TonePreviewButton({
  * of 2 unrelated-looking controls. ── */
 function GovernanceTableHeader() {
   return (
-    <div className="flex items-center gap-4 border-b border-lyra-border-subtle bg-lyra-bg-surface-container-subtle px-4 py-2">
+    <div className="flex items-center gap-6 border-b border-lyra-border-subtle bg-lyra-bg-surface-container-subtle px-4 py-2">
       <span className="w-[190px] flex-shrink-0 text-[11px] font-semibold uppercase tracking-wide text-lyra-fg-secondary">
         Setting
       </span>
@@ -239,7 +239,7 @@ function GovernanceRow({
   const hasComponentEnabled = componentEnabled !== undefined;
   const gatedOff = hasComponentEnabled && !componentEnabled;
   return (
-    <div className="flex items-center gap-4 border-t border-lyra-border-subtle px-4 py-3 first:border-t-0">
+    <div className="flex items-center gap-6 border-t border-lyra-border-subtle px-4 py-3 first:border-t-0">
       <span className="w-[190px] flex-shrink-0 text-[14px] font-bold leading-5 text-lyra-fg-default">
         {label}
       </span>
