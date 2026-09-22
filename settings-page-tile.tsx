@@ -497,16 +497,22 @@ const NOTIFICATION_EVENTS: NotificationEvent[] = [
 ];
 
 export function AVNotificationsTab() {
-  const [audioVisible, setAudioVisible] = useState<Record<string, boolean>>(
-    Object.fromEntries(NOTIFICATION_EVENTS.map((e) => [e.key, true]))
-  );
-  const [audioOn, setAudioOn] = useState<Record<string, boolean>>({
+  /* Whether a given event even makes a sound/visual at all is a
+   * Component Enabled question, not a Value — it gates the Tone picker
+   * below it (Audio) or is the entire row (Visual), same shape as Mic/
+   * Speaker Noise Cancellation's on/off gating its Sensitivity slider.
+   * Value holds only what's left once the row is enabled: the Tone
+   * choice for Audio, nothing at all for Visual. */
+  const [audioEnabled, setAudioEnabled] = useState<Record<string, boolean>>({
     "new-agent-message": true,
     "new-voice-call": true,
     "new-contact": true,
     "new-contact-reply": true,
     "end-chat-or-call": true,
   });
+  const [audioVisible, setAudioVisible] = useState<Record<string, boolean>>(
+    Object.fromEntries(NOTIFICATION_EVENTS.map((e) => [e.key, true]))
+  );
   const [audioTone, setAudioTone] = useState<Record<string, string>>({
     "new-agent-message": "tone-1",
     "new-voice-call": "tone-1",
@@ -518,16 +524,16 @@ export function AVNotificationsTab() {
     Object.fromEntries(NOTIFICATION_EVENTS.map((e) => [e.key, "editable"]))
   );
 
-  const [visualVisible, setVisualVisible] = useState<Record<string, boolean>>(
-    Object.fromEntries(NOTIFICATION_EVENTS.map((e) => [e.key, true]))
-  );
-  const [visualOn, setVisualOn] = useState<Record<string, boolean>>({
+  const [visualEnabled, setVisualEnabled] = useState<Record<string, boolean>>({
     "new-agent-message": true,
     "new-voice-call": true,
     "new-contact": true,
     "new-contact-reply": true,
     "end-chat-or-call": true,
   });
+  const [visualVisible, setVisualVisible] = useState<Record<string, boolean>>(
+    Object.fromEntries(NOTIFICATION_EVENTS.map((e) => [e.key, true]))
+  );
   const [visualGov, setVisualGov] = useState<Record<string, Governance>>(
     Object.fromEntries(NOTIFICATION_EVENTS.map((e) => [e.key, "editable"]))
   );
@@ -540,30 +546,26 @@ export function AVNotificationsTab() {
         <GovernanceRow
           key={evt.key}
           label={evt.label}
+          componentEnabled={audioEnabled[evt.key]}
+          onComponentEnabledChange={(v) => setAudioEnabled((p) => ({ ...p, [evt.key]: v }))}
           visible={audioVisible[evt.key]}
           onVisibleChange={(v) => setAudioVisible((p) => ({ ...p, [evt.key]: v }))}
           governance={audioGov[evt.key]}
           onGovernanceChange={(v) => setAudioGov((p) => ({ ...p, [evt.key]: v }))}
           value={
             <>
-              <Switch
-                size="sm"
-                checked={audioOn[evt.key]}
-                onCheckedChange={(v) => setAudioOn((p) => ({ ...p, [evt.key]: v }))}
-                aria-label={`${evt.label} audio`}
-              />
               <Select
                 options={TONE_OPTIONS}
                 value={audioTone[evt.key]}
                 onValueChange={(v) => setAudioTone((p) => ({ ...p, [evt.key]: v }))}
                 className="w-full"
-                disabled={!audioOn[evt.key]}
+                disabled={!audioEnabled[evt.key]}
                 aria-label={`${evt.label} tone`}
               />
               <TonePreviewButton
                 tone={audioTone[evt.key]}
                 ariaLabel={`Preview ${evt.label} tone`}
-                disabled={!audioOn[evt.key]}
+                disabled={!audioEnabled[evt.key]}
               />
             </>
           }
@@ -574,18 +576,12 @@ export function AVNotificationsTab() {
         <GovernanceRow
           key={evt.key}
           label={evt.label}
+          componentEnabled={visualEnabled[evt.key]}
+          onComponentEnabledChange={(v) => setVisualEnabled((p) => ({ ...p, [evt.key]: v }))}
           visible={visualVisible[evt.key]}
           onVisibleChange={(v) => setVisualVisible((p) => ({ ...p, [evt.key]: v }))}
           governance={visualGov[evt.key]}
           onGovernanceChange={(v) => setVisualGov((p) => ({ ...p, [evt.key]: v }))}
-          value={
-            <Switch
-              size="sm"
-              checked={visualOn[evt.key]}
-              onCheckedChange={(v) => setVisualOn((p) => ({ ...p, [evt.key]: v }))}
-              aria-label={`${evt.label} visual`}
-            />
-          }
         />
       ))}
     </div>
