@@ -342,6 +342,7 @@ function MiniOrderList({
   onMoveUp,
   onMoveDown,
   widthClassName,
+  showOverflowLabel = true,
 }: {
   items: OrderListItem[];
   draggingKey: string | null;
@@ -355,6 +356,10 @@ function MiniOrderList({
    * they need, sitting left-aligned side by side rather than both
    * stretching to split the row's full width evenly. */
   widthClassName: string;
+  /** The shown/more cutoff divider always renders — this only toggles
+   * its "More ellipsis" wording off (App Space Order, per Dave's call),
+   * keeping the line itself as the shown/more boundary marker. */
+  showOverflowLabel?: boolean;
 }) {
   return (
     <div className={cn("flex-shrink-0 rounded-lyra-sm border border-lyra-border-subtle", widthClassName)}>
@@ -363,7 +368,7 @@ function MiniOrderList({
           <React.Fragment key={item.key}>
             {index === APP_RAIL_CAPACITY && (
               <div className="border-t border-lyra-border-subtle border-b border-b-lyra-border-strong px-3 py-1 text-[11px] italic leading-4 text-lyra-fg-disabled">
-                More ellipsis
+                {showOverflowLabel && "More ellipsis"}
               </div>
             )}
             <div
@@ -515,6 +520,7 @@ function NavigationOrderingRow({
               onMoveUp={onAppSpaceMoveUp}
               onMoveDown={onAppSpaceMoveDown}
               widthClassName="w-[168px]"
+              showOverflowLabel={false}
             />
           </div>
         </div>
