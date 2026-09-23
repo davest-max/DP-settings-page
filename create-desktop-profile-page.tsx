@@ -289,6 +289,33 @@ const APP_SPACE_ITEMS: OrderListItem[] = LEFT_NAV_ITEMS.map((item) => ({
   label: item.label,
 }));
 
+/** Several of the 12 nav/app-space items are really just the
+ * corresponding row in the Apps section above wearing a different
+ * label prefix — e.g. "nav-schedule" is the "schedule" app. Maps an
+ * item's key suffix (after stripping its "nav-"/"appspace-" prefix) to
+ * the `apps` toggle key that gates it. Desk, Directory, Settings and
+ * Help have no such row — they're core navigation, not app toggles —
+ * so they're simply absent here and always shown. */
+const ORDER_ITEM_APP_KEY: Record<string, string> = {
+  "contact-history": "contact-history",
+  search: "search",
+  queue: "queue-counter",
+  schedule: "schedule",
+  launch: "launch",
+  "custom-workspace": "custom-workspace",
+  reporting: "reporting",
+  wem: "wem",
+};
+
+/** True unless this item maps to an Apps-section toggle that's off —
+ * used to drop off/hidden apps from both order lists entirely (not
+ * just dim them), per Dave's call. */
+function isOrderItemAppOn(itemKey: string, apps: Record<string, boolean>): boolean {
+  const suffix = itemKey.replace(/^nav-|^appspace-/, "");
+  const appKey = ORDER_ITEM_APP_KEY[suffix];
+  return appKey === undefined || apps[appKey] !== false;
+}
+
 /** How many items a rail/tab-strip can show before the rest fall into
  * its "···" overflow menu — used for both lists below. Matches
  * `RAIL_CAPACITY` in page-order-editor.tsx (kept as its own constant so
@@ -832,11 +859,18 @@ export function CreateDesktopProfilePage({
     setAppSpaceOrder((prev) => reorderTo(prev, orderDrag.key, overKey));
   }
 
-  const leftNavItems = leftNavOrder.map((key) => LEFT_NAV_ITEMS.find((i) => i.key === key)!);
-  // Mirrors Left Navigation Order's item set (see `APP_SPACE_ITEMS`)
-  // rather than the real Apps toggle list — Dave's call to match both
-  // lists' content. No on/off state to filter on here anymore.
-  const appSpaceItems = appSpaceOrder.map((key) => APP_SPACE_ITEMS.find((i) => i.key === key)!);
+  // An app turned off in the Apps section above doesn't show in either
+  // list at all, not just dimmed — its slot in `leftNavOrder`/
+  // `appSpaceOrder` is kept, though, so re-enabling it restores
+  // wherever it was left rather than appending to the end.
+  const leftNavItems = leftNavOrder
+    .filter((key) => isOrderItemAppOn(key, apps))
+    .map((key) => LEFT_NAV_ITEMS.find((i) => i.key === key)!);
+  // Mirrors Left Navigation Order's item set (see `APP_SPACE_ITEMS`),
+  // filtered by the same Apps-section toggles.
+  const appSpaceItems = appSpaceOrder
+    .filter((key) => isOrderItemAppOn(key, apps))
+    .map((key) => APP_SPACE_ITEMS.find((i) => i.key === key)!);
 
   /* ── "Agent-drafted profile" preview ──
    * A sketch of what this screen looks like when it's showing a profile an
