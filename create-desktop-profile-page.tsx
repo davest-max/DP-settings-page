@@ -1,6 +1,6 @@
 import * as React from "react";
 import { useState, useRef, useEffect } from "react";
-import { ArrowDown, ArrowUp, Box, CheckCircle2, ChevronDown, ChevronRight, GripVertical, MinusCircle, Trash2, X } from "lucide-react";
+import { ArrowDown, ArrowUp, Box, CheckCircle2, ChevronRight, GripVertical, MinusCircle, Trash2, X } from "lucide-react";
 import {
   cn,
   AdminShell,
@@ -323,7 +323,6 @@ function AppMoveButton({
  * (see the App Space Order filter below), not just dimmed, so there's
  * nothing here to distinguish "off" from "not in this list." */
 function MiniOrderList({
-  title,
   items,
   draggingKey,
   onDragStart,
@@ -332,7 +331,6 @@ function MiniOrderList({
   onMoveUp,
   onMoveDown,
 }: {
-  title: string;
   items: OrderListItem[];
   draggingKey: string | null;
   onDragStart: (key: string) => void;
@@ -343,10 +341,6 @@ function MiniOrderList({
 }) {
   return (
     <div className="flex-1 rounded-lyra-sm border border-lyra-border-subtle">
-      <div className="flex items-center gap-1 border-b border-lyra-border-subtle bg-lyra-bg-surface-container-subtle px-3 py-1.5 text-[13px] font-bold leading-5 text-lyra-fg-default">
-        {title}
-        <ChevronRight className="h-3 w-3 text-lyra-fg-disabled" strokeWidth={2} aria-hidden="true" />
-      </div>
       <div className="flex flex-col">
         {items.map((item, index) => (
           <React.Fragment key={item.key}>
@@ -428,7 +422,6 @@ function NavigationOrderingRow({
   onAppSpaceMoveUp: (key: string) => void;
   onAppSpaceMoveDown: (key: string) => void;
 }) {
-  const ChevronIcon = expanded ? ChevronDown : ChevronRight;
   return (
     <div className="border-t border-lyra-border-subtle">
       <div
@@ -444,36 +437,57 @@ function NavigationOrderingRow({
         aria-expanded={expanded}
         className="flex cursor-pointer items-center gap-6 px-4 py-3 hover:bg-lyra-state-hover"
       >
-        <span className="flex w-[220px] flex-shrink-0 items-center gap-1.5 text-[14px] font-bold leading-5 text-lyra-fg-default">
-          <ChevronIcon className="h-3.5 w-3.5 shrink-0 text-lyra-fg-disabled" strokeWidth={2} aria-hidden="true" />
+        {/* No chevron of its own — the two list titles just below,
+         * each already carrying a chevron, are what signals there's
+         * something to open here (same "label + chevron means click
+         * me" convention `AppsPageLinkRow` already uses above). */}
+        <span className="w-[220px] flex-shrink-0 text-[14px] font-bold leading-5 text-lyra-fg-default">
           Navigation Ordering
         </span>
-        <div className="flex flex-1 items-center justify-end" onClick={(e) => e.stopPropagation()}>
+        {/* Always-visible labels for the two lists this row manages —
+         * the affordance that there are two lists here, and that
+         * they're each independently orderable, even before opening
+         * this row. */}
+        <div className="flex flex-1 items-center gap-4">
+          <span className="flex flex-1 items-center gap-1 text-[13px] font-bold leading-5 text-lyra-fg-default">
+            Left Navigation Order
+            <ChevronRight className="h-3 w-3 shrink-0 text-lyra-fg-disabled" strokeWidth={2} aria-hidden="true" />
+          </span>
+          <span className="flex flex-1 items-center gap-1 text-[13px] font-bold leading-5 text-lyra-fg-default">
+            App Space Order
+            <ChevronRight className="h-3 w-3 shrink-0 text-lyra-fg-disabled" strokeWidth={2} aria-hidden="true" />
+          </span>
+        </div>
+        <div onClick={(e) => e.stopPropagation()}>
           <ToggleChip label="Agent Editable" selected={agentEditable} onToggle={onToggleAgentEditable} />
         </div>
       </div>
       {expanded && (
-        <div className="flex gap-4 px-4 pb-4">
-          <MiniOrderList
-            title="Left Navigation Order"
-            items={leftNavItems}
-            draggingKey={draggingKey}
-            onDragStart={(key) => onDragStart("nav", key)}
-            onDragEnter={onNavDragEnter}
-            onDragEnd={onDragEnd}
-            onMoveUp={onNavMoveUp}
-            onMoveDown={onNavMoveDown}
-          />
-          <MiniOrderList
-            title="App Space Order"
-            items={appSpaceItems}
-            draggingKey={draggingKey}
-            onDragStart={(key) => onDragStart("app", key)}
-            onDragEnter={onAppSpaceDragEnter}
-            onDragEnd={onDragEnd}
-            onMoveUp={onAppSpaceMoveUp}
-            onMoveDown={onAppSpaceMoveDown}
-          />
+        <div className="flex items-start gap-6 px-4 pb-4">
+          {/* Empty spacer matching the "Navigation Ordering" label's
+           * width above, so the two lists below line up under their
+           * titles rather than under the row label. */}
+          <div className="w-[220px] flex-shrink-0" aria-hidden="true" />
+          <div className="flex flex-1 gap-4">
+            <MiniOrderList
+              items={leftNavItems}
+              draggingKey={draggingKey}
+              onDragStart={(key) => onDragStart("nav", key)}
+              onDragEnter={onNavDragEnter}
+              onDragEnd={onDragEnd}
+              onMoveUp={onNavMoveUp}
+              onMoveDown={onNavMoveDown}
+            />
+            <MiniOrderList
+              items={appSpaceItems}
+              draggingKey={draggingKey}
+              onDragStart={(key) => onDragStart("app", key)}
+              onDragEnter={onAppSpaceDragEnter}
+              onDragEnd={onDragEnd}
+              onMoveUp={onAppSpaceMoveUp}
+              onMoveDown={onAppSpaceMoveDown}
+            />
+          </div>
         </div>
       )}
     </div>
