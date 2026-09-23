@@ -276,6 +276,17 @@ const LEFT_NAV_ITEMS: OrderListItem[] = [
   { key: "nav-help", label: "Help" },
 ];
 
+/** App Space Order's content, per Dave's call to match both lists —
+ * same labels and order as `LEFT_NAV_ITEMS`, no longer sourced from the
+ * real `APPS` toggle list above. Its own key prefix ("appspace-" vs.
+ * "nav-") keeps the two lists' items distinct, so dragging a row in one
+ * list never collides with a same-named row in the other (matters for
+ * `orderDrag`'s shared `key` and each list's React keys). */
+const APP_SPACE_ITEMS: OrderListItem[] = LEFT_NAV_ITEMS.map((item) => ({
+  key: item.key.replace("nav-", "appspace-"),
+  label: item.label,
+}));
+
 /** How many items a rail/tab-strip can show before the rest fall into
  * its "···" overflow menu — used for both lists below. Matches
  * `RAIL_CAPACITY` in page-order-editor.tsx (kept as its own constant so
@@ -470,7 +481,7 @@ function NavigationOrderingRow({
           <span className="w-[168px] flex-shrink-0 truncate text-[13px] font-bold leading-5 text-lyra-fg-default">
             Left Navigation Order
           </span>
-          <span className="w-[208px] flex-shrink-0 truncate text-[13px] font-bold leading-5 text-lyra-fg-default">
+          <span className="w-[168px] flex-shrink-0 truncate text-[13px] font-bold leading-5 text-lyra-fg-default">
             App Space Order
           </span>
         </div>
@@ -503,7 +514,7 @@ function NavigationOrderingRow({
               onDragEnd={onDragEnd}
               onMoveUp={onAppSpaceMoveUp}
               onMoveDown={onAppSpaceMoveDown}
-              widthClassName="w-[208px]"
+              widthClassName="w-[168px]"
             />
           </div>
         </div>
@@ -778,7 +789,7 @@ export function CreateDesktopProfilePage({
    * mid-drag, since only one list is ever being dragged at a time. */
   const [navOrderingExpanded, setNavOrderingExpanded] = useState(false);
   const [leftNavOrder, setLeftNavOrder] = useState<string[]>(() => LEFT_NAV_ITEMS.map((i) => i.key));
-  const [appSpaceOrder, setAppSpaceOrder] = useState<string[]>(() => APPS.map((app) => app.key));
+  const [appSpaceOrder, setAppSpaceOrder] = useState<string[]>(() => APP_SPACE_ITEMS.map((i) => i.key));
   const [orderDrag, setOrderDrag] = useState<{ list: "nav" | "app"; key: string } | null>(null);
 
   function swapAdjacent(order: string[], key: string, direction: "up" | "down"): string[] {
@@ -814,12 +825,10 @@ export function CreateDesktopProfilePage({
   }
 
   const leftNavItems = leftNavOrder.map((key) => LEFT_NAV_ITEMS.find((i) => i.key === key)!);
-  // Dave's call: an app that's off/hidden doesn't appear in this list at
-  // all, not just dimmed — its slot in `appSpaceOrder` is kept, though,
-  // so re-enabling it restores wherever it was left.
-  const appSpaceItems = appSpaceOrder
-    .filter((key) => apps[key])
-    .map((key) => APPS.find((app) => app.key === key)!);
+  // Mirrors Left Navigation Order's item set (see `APP_SPACE_ITEMS`)
+  // rather than the real Apps toggle list — Dave's call to match both
+  // lists' content. No on/off state to filter on here anymore.
+  const appSpaceItems = appSpaceOrder.map((key) => APP_SPACE_ITEMS.find((i) => i.key === key)!);
 
   /* ── "Agent-drafted profile" preview ──
    * A sketch of what this screen looks like when it's showing a profile an
