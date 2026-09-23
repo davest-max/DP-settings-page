@@ -1,6 +1,6 @@
 import * as React from "react";
 import { useState, useRef, useEffect } from "react";
-import { ArrowDown, ArrowUp, Box, CheckCircle2, ChevronRight, GripVertical, MinusCircle, Trash2, X } from "lucide-react";
+import { ArrowDown, ArrowUp, Box, CheckCircle2, ChevronDown, ChevronRight, GripVertical, MinusCircle, Trash2, X } from "lucide-react";
 import {
   cn,
   AdminShell,
@@ -240,26 +240,50 @@ function AppsPageLinkRow({
   );
 }
 
-/* AW-61857 — the order agents see these apps in the rail/App Space is
- * set right here, on the same rows that turn each app on and off, not
- * in a separate modal or panel: Dave's call after the first pass (a
- * standalone "Layout" screen away from the Apps section) didn't match
- * what he actually wanted — reordering directly on the app section
- * itself, no second destination. `AppMoveButton` + the drag handle
- * below are a lighter version of the same up/down-button pattern
- * `page-order-editor.tsx` already built for the modal this replaces;
- * that file is left in place, unused, as a record of the earlier
- * direction rather than deleted outright. */
+/* AW-61857, rev. 2 — Dave's call: scale the first pass back. The Apps
+ * rows above go back to plain toggle rows (no grip, no arrows, no
+ * header caption) — reordering doesn't live there anymore. Instead one
+ * collapsed-by-default accordion row, "Navigation Ordering", sits at
+ * the bottom of the Apps list: its title and the "Agent Editable" chip
+ * are always visible; expanding it reveals Left Navigation Order and
+ * App Space Order as two independent small lists, each still
+ * drag-or-arrow reorderable — the same interaction as before, just
+ * relocated and, at 12px/11px, considerably more compact. Only one
+ * "Agent Editable" chip governs both lists together (Dave's sketch
+ * shows one chip, not two). `page-order-editor.tsx` remains untouched
+ * and unused, same as the first pass. */
 
-/** How many apps the real Agent Workspace rail can show before the rest
- * fall into its "···" overflow menu — matches `RAIL_CAPACITY` in
- * page-order-editor.tsx. Kept as its own constant here rather than
- * imported so this section has no dependency on that now-unused file. */
+interface OrderListItem {
+  key: string;
+  label: string;
+}
+
+/** Left Nav has no existing data model anywhere in this prototype (App
+ * Space already had `APPS`) — real item names per Dave's call, matching
+ * his reference Agent Workspace rail screenshot. "Help" is 9th on
+ * purpose, landing in More by default, so the shown/more cutoff below
+ * has something to actually demonstrate rather than sitting empty at
+ * exactly 8 of 8. */
+const LEFT_NAV_ITEMS: OrderListItem[] = [
+  { key: "nav-history", label: "History" },
+  { key: "nav-search", label: "Search" },
+  { key: "nav-queue", label: "Queue" },
+  { key: "nav-directory", label: "Directory" },
+  { key: "nav-calendar", label: "Calendar" },
+  { key: "nav-desk", label: "Desk" },
+  { key: "nav-library", label: "Library" },
+  { key: "nav-settings", label: "Settings" },
+  { key: "nav-help", label: "Help" },
+];
+
+/** How many items a rail/tab-strip can show before the rest fall into
+ * its "···" overflow menu — used for both lists below. Matches
+ * `RAIL_CAPACITY` in page-order-editor.tsx (kept as its own constant so
+ * this section has no dependency on that now-unused file). */
 const APP_RAIL_CAPACITY = 8;
 
-/** Keyboard-reachable up/down reordering — visible at rest so the
- * "these rows can be dragged" affordance doesn't rely on discovering the
- * grip handle first, and doesn't disappear for anyone not using a mouse. */
+/** Keyboard-reachable up/down reordering — visible at rest rather than
+ * hidden behind hover, so it isn't mouse-only. */
 function AppMoveButton({
   direction,
   disabled,
@@ -281,107 +305,180 @@ function AppMoveButton({
           onMove();
         }}
         className={cn(
-          "flex h-5 w-5 shrink-0 items-center justify-center rounded-lyra-xs border transition-colors",
+          "flex h-4 w-4 shrink-0 items-center justify-center rounded-lyra-xs border transition-colors",
           disabled
             ? "cursor-not-allowed border-transparent text-lyra-fg-disabled"
             : "border-lyra-border-subtle text-lyra-fg-secondary hover:bg-lyra-state-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-lyra-border-focus"
         )}
       >
-        <Icon className="h-3 w-3" strokeWidth={1.5} aria-hidden="true" />
+        <Icon className="h-2.5 w-2.5" strokeWidth={1.5} aria-hidden="true" />
       </button>
     </Tooltip>
   );
 }
 
-/** A one-line section break inside the Apps list marking where the rail
- * hands off to the "···" overflow menu — recomputed live as rows get
- * dragged or switched, so the cutoff always reflects the current order
- * and the current on/off state, not a fixed count. Same shape as
- * `SubGroupLabel` in settings-page-tile.tsx. */
-function AppsOverflowDivider() {
+/** One of the two independent lists inside the expanded "Navigation
+ * Ordering" row. `items` is already the caller's fully-filtered,
+ * ordered list — an app that's off/hidden is never passed in at all
+ * (see the App Space Order filter below), not just dimmed, so there's
+ * nothing here to distinguish "off" from "not in this list." */
+function MiniOrderList({
+  title,
+  items,
+  draggingKey,
+  onDragStart,
+  onDragEnter,
+  onDragEnd,
+  onMoveUp,
+  onMoveDown,
+}: {
+  title: string;
+  items: OrderListItem[];
+  draggingKey: string | null;
+  onDragStart: (key: string) => void;
+  onDragEnter: (key: string) => void;
+  onDragEnd: () => void;
+  onMoveUp: (key: string) => void;
+  onMoveDown: (key: string) => void;
+}) {
   return (
-    <div className="border-t border-lyra-border-subtle bg-lyra-bg-surface-container-subtle px-4 py-1.5 text-[11px] font-semibold uppercase tracking-wide text-lyra-fg-secondary">
-      More ellipsis — beyond the {APP_RAIL_CAPACITY} shown in the rail
+    <div className="flex-1 rounded-lyra-sm border border-lyra-border-subtle">
+      <div className="flex items-center gap-1 border-b border-lyra-border-subtle bg-lyra-bg-surface-container-subtle px-3 py-1.5 text-[13px] font-bold leading-5 text-lyra-fg-default">
+        {title}
+        <ChevronRight className="h-3 w-3 text-lyra-fg-disabled" strokeWidth={2} aria-hidden="true" />
+      </div>
+      <div className="flex flex-col">
+        {items.map((item, index) => (
+          <React.Fragment key={item.key}>
+            {index === APP_RAIL_CAPACITY && (
+              <div className="border-t border-lyra-border-subtle border-b border-b-lyra-border-strong px-3 py-1 text-[11px] italic leading-4 text-lyra-fg-disabled">
+                More ellipsis
+              </div>
+            )}
+            <div
+              draggable
+              onDragStart={() => onDragStart(item.key)}
+              onDragEnter={() => onDragEnter(item.key)}
+              onDragEnd={onDragEnd}
+              onDragOver={(e) => e.preventDefault()}
+              className={cn(
+                "flex items-center gap-1.5 border-t border-lyra-border-subtle px-3 py-1.5 text-[12px] leading-4 text-lyra-fg-default first:border-t-0",
+                draggingKey === item.key && "opacity-40"
+              )}
+            >
+              <GripVertical
+                className="h-3 w-3 shrink-0 cursor-grab text-lyra-fg-disabled active:cursor-grabbing"
+                strokeWidth={1.5}
+                aria-hidden="true"
+              />
+              <span className="flex-1 truncate">{item.label}</span>
+              <div className="flex items-center gap-0.5">
+                <AppMoveButton direction="up" disabled={index === 0} onMove={() => onMoveUp(item.key)} />
+                <AppMoveButton
+                  direction="down"
+                  disabled={index === items.length - 1}
+                  onMove={() => onMoveDown(item.key)}
+                />
+              </div>
+            </div>
+          </React.Fragment>
+        ))}
+        {items.length === 0 && (
+          <div className="px-3 py-2 text-[12px] text-lyra-fg-disabled">Nothing turned on yet.</div>
+        )}
+      </div>
     </div>
   );
 }
 
-/** One Apps-table row, now also a reorderable one: a drag handle + the
- * same up/down buttons `page-order-editor.tsx` used, sitting left of the
- * label; the enable Switch stays exactly where every other row in this
- * table already has it. Order changes and on/off stay two separate
- * controls on one row rather than two separate rows in two places. */
-const AppOrderRow = React.forwardRef<
-  HTMLDivElement,
-  {
-    app: AppToggleDef;
-    enabled: boolean;
-    onToggle: (v: boolean) => void;
-    isDragging: boolean;
-    canMoveUp: boolean;
-    canMoveDown: boolean;
-    onDragStart: () => void;
-    onDragEnter: () => void;
-    onDragEnd: () => void;
-    onMoveUp: () => void;
-    onMoveDown: () => void;
-    reviewBadge?: React.ReactNode;
-    highlighted?: boolean;
-  }
->(
-  (
-    {
-      app,
-      enabled,
-      onToggle,
-      isDragging,
-      canMoveUp,
-      canMoveDown,
-      onDragStart,
-      onDragEnter,
-      onDragEnd,
-      onMoveUp,
-      onMoveDown,
-      reviewBadge,
-      highlighted,
-    },
-    ref
-  ) => {
-    return (
+/** The accordion itself: collapsed to one row (title + the shared
+ * "Agent Editable" chip, both always visible) until clicked open. The
+ * chip sits in a click-stopping wrapper so tapping it toggles agent
+ * editability without also collapsing/expanding the row underneath it. */
+function NavigationOrderingRow({
+  expanded,
+  onToggleExpanded,
+  agentEditable,
+  onToggleAgentEditable,
+  leftNavItems,
+  appSpaceItems,
+  draggingKey,
+  onDragStart,
+  onDragEnd,
+  onNavDragEnter,
+  onAppSpaceDragEnter,
+  onNavMoveUp,
+  onNavMoveDown,
+  onAppSpaceMoveUp,
+  onAppSpaceMoveDown,
+}: {
+  expanded: boolean;
+  onToggleExpanded: () => void;
+  agentEditable: boolean;
+  onToggleAgentEditable: () => void;
+  leftNavItems: OrderListItem[];
+  appSpaceItems: OrderListItem[];
+  draggingKey: string | null;
+  onDragStart: (list: "nav" | "app", key: string) => void;
+  onDragEnd: () => void;
+  onNavDragEnter: (key: string) => void;
+  onAppSpaceDragEnter: (key: string) => void;
+  onNavMoveUp: (key: string) => void;
+  onNavMoveDown: (key: string) => void;
+  onAppSpaceMoveUp: (key: string) => void;
+  onAppSpaceMoveDown: (key: string) => void;
+}) {
+  const ChevronIcon = expanded ? ChevronDown : ChevronRight;
+  return (
+    <div className="border-t border-lyra-border-subtle">
       <div
-        ref={ref}
-        draggable
-        onDragStart={onDragStart}
-        onDragEnter={onDragEnter}
-        onDragEnd={onDragEnd}
-        onDragOver={(e) => e.preventDefault()}
-        className={cn(
-          "flex items-center gap-6 border-t border-lyra-border-subtle px-4 py-3 first:border-t-0 transition-opacity",
-          isDragging && "opacity-40",
-          highlighted && "bg-lyra-bg-active-subtle ring-1 ring-inset ring-lyra-border-active"
-        )}
+        role="button"
+        tabIndex={0}
+        onClick={onToggleExpanded}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            onToggleExpanded();
+          }
+        }}
+        aria-expanded={expanded}
+        className="flex cursor-pointer items-center gap-6 px-4 py-3 hover:bg-lyra-state-hover"
       >
-        <div className={cn("flex w-[220px] flex-shrink-0 items-center gap-1.5", !enabled && "opacity-60")}>
-          <GripVertical
-            className="h-4 w-4 shrink-0 cursor-grab text-lyra-fg-disabled active:cursor-grabbing"
-            strokeWidth={1.5}
-            aria-hidden="true"
-          />
-          <div className="flex items-center gap-0.5">
-            <AppMoveButton direction="up" disabled={!canMoveUp} onMove={onMoveUp} />
-            <AppMoveButton direction="down" disabled={!canMoveDown} onMove={onMoveDown} />
-          </div>
-          <span className="text-[14px] font-bold leading-5 text-lyra-fg-default">{app.label}</span>
-          {reviewBadge}
-        </div>
-        <div className="flex flex-1 items-center">
-          <Switch size="sm" checked={enabled} onCheckedChange={onToggle} aria-label={app.label} />
+        <span className="flex w-[220px] flex-shrink-0 items-center gap-1.5 text-[14px] font-bold leading-5 text-lyra-fg-default">
+          <ChevronIcon className="h-3.5 w-3.5 shrink-0 text-lyra-fg-disabled" strokeWidth={2} aria-hidden="true" />
+          Navigation Ordering
+        </span>
+        <div className="flex flex-1 items-center justify-end" onClick={(e) => e.stopPropagation()}>
+          <ToggleChip label="Agent Editable" selected={agentEditable} onToggle={onToggleAgentEditable} />
         </div>
       </div>
-    );
-  }
-);
-AppOrderRow.displayName = "AppOrderRow";
+      {expanded && (
+        <div className="flex gap-4 px-4 pb-4">
+          <MiniOrderList
+            title="Left Navigation Order"
+            items={leftNavItems}
+            draggingKey={draggingKey}
+            onDragStart={(key) => onDragStart("nav", key)}
+            onDragEnter={onNavDragEnter}
+            onDragEnd={onDragEnd}
+            onMoveUp={onNavMoveUp}
+            onMoveDown={onNavMoveDown}
+          />
+          <MiniOrderList
+            title="App Space Order"
+            items={appSpaceItems}
+            draggingKey={draggingKey}
+            onDragStart={(key) => onDragStart("app", key)}
+            onDragEnter={onAppSpaceDragEnter}
+            onDragEnd={onDragEnd}
+            onMoveUp={onAppSpaceMoveUp}
+            onMoveDown={onAppSpaceMoveDown}
+          />
+        </div>
+      )}
+    </div>
+  );
+}
 
 /* ── Small "needs review" flag for a row an AI agent drafted but
  * couldn't confidently finish alone — see the `aiDraftPreview` toggle in
@@ -642,36 +739,55 @@ export function CreateDesktopProfilePage({
   const [quickBarAgentCustomization, setQuickBarAgentCustomization] = useState(true);
   const [screenPopAlwaysStealFocus, setScreenPopAlwaysStealFocus] = useState(false);
 
-  /* AW-61857 — the Apps list's own order, reorderable in place (see
-   * `AppOrderRow` above). Separate from `apps` (which app is on/off):
-   * an app keeps its position in this array even while switched off, so
-   * turning it back on doesn't lose whatever slot it was dragged to. */
-  const [appOrder, setAppOrder] = useState<string[]>(() => APPS.map((app) => app.key));
-  const [draggedAppKey, setDraggedAppKey] = useState<string | null>(null);
-  const orderedApps = appOrder.map((key) => APPS.find((app) => app.key === key)!);
+  /* AW-61857, rev. 2 — order lives in the "Navigation Ordering"
+   * accordion at the bottom of Apps (see `NavigationOrderingRow`
+   * above), not on the Apps rows themselves. Left Nav and App Space
+   * order independently; a single shared drag-state tags which list is
+   * mid-drag, since only one list is ever being dragged at a time. */
+  const [navOrderingExpanded, setNavOrderingExpanded] = useState(false);
+  const [leftNavOrder, setLeftNavOrder] = useState<string[]>(() => LEFT_NAV_ITEMS.map((i) => i.key));
+  const [appSpaceOrder, setAppSpaceOrder] = useState<string[]>(() => APPS.map((app) => app.key));
+  const [orderDrag, setOrderDrag] = useState<{ list: "nav" | "app"; key: string } | null>(null);
 
-  function moveApp(key: string, direction: "up" | "down") {
-    setAppOrder((prev) => {
-      const idx = prev.indexOf(key);
-      const targetIdx = direction === "up" ? idx - 1 : idx + 1;
-      if (targetIdx < 0 || targetIdx >= prev.length) return prev;
-      const next = [...prev];
-      [next[idx], next[targetIdx]] = [next[targetIdx], next[idx]];
-      return next;
-    });
+  function swapAdjacent(order: string[], key: string, direction: "up" | "down"): string[] {
+    const idx = order.indexOf(key);
+    const targetIdx = direction === "up" ? idx - 1 : idx + 1;
+    if (targetIdx < 0 || targetIdx >= order.length) return order;
+    const next = [...order];
+    [next[idx], next[targetIdx]] = [next[targetIdx], next[idx]];
+    return next;
   }
 
+  function reorderTo(order: string[], draggedKey: string, overKey: string): string[] {
+    const next = order.filter((k) => k !== draggedKey);
+    next.splice(next.indexOf(overKey), 0, draggedKey);
+    return next;
+  }
+
+  function moveNavItem(key: string, direction: "up" | "down") {
+    setLeftNavOrder((prev) => swapAdjacent(prev, key, direction));
+  }
+  function moveAppSpaceItem(key: string, direction: "up" | "down") {
+    setAppSpaceOrder((prev) => swapAdjacent(prev, key, direction));
+  }
   /* Reorders live as the dragged row passes over another one, rather
-   * than waiting for a drop — one less event to wire up, and it's the
-   * same live-reorder feel most drag-to-reorder lists already have. */
-  function dragAppOver(overKey: string) {
-    if (!draggedAppKey || draggedAppKey === overKey) return;
-    setAppOrder((prev) => {
-      const next = prev.filter((k) => k !== draggedAppKey);
-      next.splice(next.indexOf(overKey), 0, draggedAppKey);
-      return next;
-    });
+   * than waiting for a drop — one less event to wire up. */
+  function dragNavOver(overKey: string) {
+    if (orderDrag?.list !== "nav" || orderDrag.key === overKey) return;
+    setLeftNavOrder((prev) => reorderTo(prev, orderDrag.key, overKey));
   }
+  function dragAppSpaceOver(overKey: string) {
+    if (orderDrag?.list !== "app" || orderDrag.key === overKey) return;
+    setAppSpaceOrder((prev) => reorderTo(prev, orderDrag.key, overKey));
+  }
+
+  const leftNavItems = leftNavOrder.map((key) => LEFT_NAV_ITEMS.find((i) => i.key === key)!);
+  // Dave's call: an app that's off/hidden doesn't appear in this list at
+  // all, not just dimmed — its slot in `appSpaceOrder` is kept, though,
+  // so re-enabling it restores wherever it was left.
+  const appSpaceItems = appSpaceOrder
+    .filter((key) => apps[key])
+    .map((key) => APPS.find((app) => app.key === key)!);
 
   /* ── "Agent-drafted profile" preview ──
    * A sketch of what this screen looks like when it's showing a profile an
@@ -849,65 +965,58 @@ export function CreateDesktopProfilePage({
             </div>
 
             {/* ── Apps ──
-             * AW-61857 — order lives here now, on the rows themselves
-             * (drag or the ▲▼ buttons), not behind a separate "Set page
-             * order" control. "Agent Editable" moved up into this
-             * section's own header since it's the one switch governing
-             * whether agents can reorder everything below it. */}
+             * AW-61857, rev. 2 — these rows are plain again (on/off
+             * only). Reordering lives in the "Navigation Ordering" row
+             * at the bottom of this list instead — see
+             * `NavigationOrderingRow` above for why. */}
             <section>
-              <SectionHeader>
-                <div className="flex items-center justify-between">
-                  <span>Apps</span>
-                  <ToggleChip
-                    label="Agent Editable"
-                    selected={quickBarAgentCustomization}
-                    onToggle={() => setQuickBarAgentCustomization((v) => !v)}
-                  />
-                </div>
-              </SectionHeader>
-              <p className="border-x border-lyra-border-subtle bg-lyra-bg-surface-container-subtle px-4 py-2 lyra-body-sm text-lyra-fg-secondary">
-                Drag a row or use the arrows to set the order agents see these in — the switch controls whether an app shows at all.
-              </p>
+              <SectionHeader>Apps</SectionHeader>
               <div className="flex flex-col rounded-b-lyra-sm border border-lyra-border-subtle">
                 <AppsPageLinkRow
                   label="Agent Settings Page"
                   description="3 sections"
                   onClick={() => setTab("settings-page")}
                 />
-                {(() => {
-                  let shownCount = 0;
-                  return orderedApps.map((app, index) => {
-                    const enabled = apps[app.key];
-                    const isReviewItem = aiDraftPreview && app.key === "queue-counter";
-                    const startsOverflow = enabled && shownCount === APP_RAIL_CAPACITY;
-                    if (enabled) shownCount++;
-                    return (
-                      <React.Fragment key={app.key}>
-                        {startsOverflow && <AppsOverflowDivider />}
-                        <AppOrderRow
-                          app={app}
-                          enabled={enabled}
-                          onToggle={(v) => setApps((prev) => ({ ...prev, [app.key]: v }))}
-                          ref={isReviewItem ? queueCounterRowRef : undefined}
-                          highlighted={isReviewItem}
-                          reviewBadge={
-                            isReviewItem ? (
-                              <ReviewBadge note="Trainees may not need live Queue Counter visibility yet — confirm before enabling for this cohort." />
-                            ) : undefined
-                          }
-                          isDragging={draggedAppKey === app.key}
-                          canMoveUp={index > 0}
-                          canMoveDown={index < orderedApps.length - 1}
-                          onDragStart={() => setDraggedAppKey(app.key)}
-                          onDragEnter={() => dragAppOver(app.key)}
-                          onDragEnd={() => setDraggedAppKey(null)}
-                          onMoveUp={() => moveApp(app.key, "up")}
-                          onMoveDown={() => moveApp(app.key, "down")}
-                        />
-                      </React.Fragment>
-                    );
-                  });
-                })()}
+                {APPS.map((app) => {
+                  const isReviewItem = aiDraftPreview && app.key === "queue-counter";
+                  return (
+                    <SettingsFieldRow
+                      key={app.key}
+                      label={app.label}
+                      ref={isReviewItem ? queueCounterRowRef : undefined}
+                      highlighted={isReviewItem}
+                      reviewBadge={
+                        isReviewItem ? (
+                          <ReviewBadge note="Trainees may not need live Queue Counter visibility yet — confirm before enabling for this cohort." />
+                        ) : undefined
+                      }
+                    >
+                      <Switch
+                        size="sm"
+                        checked={apps[app.key]}
+                        onCheckedChange={(v) => setApps((prev) => ({ ...prev, [app.key]: v }))}
+                        aria-label={app.label}
+                      />
+                    </SettingsFieldRow>
+                  );
+                })}
+                <NavigationOrderingRow
+                  expanded={navOrderingExpanded}
+                  onToggleExpanded={() => setNavOrderingExpanded((v) => !v)}
+                  agentEditable={quickBarAgentCustomization}
+                  onToggleAgentEditable={() => setQuickBarAgentCustomization((v) => !v)}
+                  leftNavItems={leftNavItems}
+                  appSpaceItems={appSpaceItems}
+                  draggingKey={orderDrag?.key ?? null}
+                  onDragStart={(list, key) => setOrderDrag({ list, key })}
+                  onDragEnd={() => setOrderDrag(null)}
+                  onNavDragEnter={dragNavOver}
+                  onAppSpaceDragEnter={dragAppSpaceOver}
+                  onNavMoveUp={(key) => moveNavItem(key, "up")}
+                  onNavMoveDown={(key) => moveNavItem(key, "down")}
+                  onAppSpaceMoveUp={(key) => moveAppSpaceItem(key, "up")}
+                  onAppSpaceMoveDown={(key) => moveAppSpaceItem(key, "down")}
+                />
               </div>
             </section>
 
