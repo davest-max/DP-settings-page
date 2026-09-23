@@ -259,20 +259,22 @@ interface OrderListItem {
 }
 
 /** Left Nav has no existing data model anywhere in this prototype (App
- * Space already had `APPS`) — real item names per Dave's call, matching
- * his reference Agent Workspace rail screenshot. "Help" is 9th on
- * purpose, landing in More by default, so the shown/more cutoff below
- * has something to actually demonstrate rather than sitting empty at
- * exactly 8 of 8. */
+ * Space already had `APPS`) — the real 12-item list and order from
+ * Dave's reference screenshot of the actual rail, 8 shown above the
+ * "More" cutoff (Desk through Custom Workspace) and 4 below it
+ * (Reporting, Settings, WEM, Help). */
 const LEFT_NAV_ITEMS: OrderListItem[] = [
-  { key: "nav-history", label: "History" },
+  { key: "nav-desk", label: "Desk" },
+  { key: "nav-contact-history", label: "Contact History" },
   { key: "nav-search", label: "Search" },
   { key: "nav-queue", label: "Queue" },
   { key: "nav-directory", label: "Directory" },
-  { key: "nav-calendar", label: "Calendar" },
-  { key: "nav-desk", label: "Desk" },
-  { key: "nav-library", label: "Library" },
+  { key: "nav-schedule", label: "Schedule" },
+  { key: "nav-launch", label: "Launch" },
+  { key: "nav-custom-workspace", label: "Custom Workspace" },
+  { key: "nav-reporting", label: "Reporting" },
   { key: "nav-settings", label: "Settings" },
+  { key: "nav-wem", label: "WEM" },
   { key: "nav-help", label: "Help" },
 ];
 
