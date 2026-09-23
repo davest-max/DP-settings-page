@@ -1,6 +1,6 @@
 import * as React from "react";
 import { useState, useRef, useEffect } from "react";
-import { ArrowDown, ArrowUp, Box, CheckCircle2, ChevronRight, GripVertical, MinusCircle, Trash2, X } from "lucide-react";
+import { ArrowDown, ArrowUp, Box, CheckCircle2, ChevronDown, ChevronRight, GripVertical, MinusCircle, Trash2, X } from "lucide-react";
 import {
   cn,
   AdminShell,
@@ -330,6 +330,7 @@ function MiniOrderList({
   onDragEnd,
   onMoveUp,
   onMoveDown,
+  widthClassName,
 }: {
   items: OrderListItem[];
   draggingKey: string | null;
@@ -338,9 +339,14 @@ function MiniOrderList({
   onDragEnd: () => void;
   onMoveUp: (key: string) => void;
   onMoveDown: (key: string) => void;
+  /** Fixed, content-sized width — intentionally NOT flex-1. Left Nav's
+   * short labels and App Space's longer ones each get just the room
+   * they need, sitting left-aligned side by side rather than both
+   * stretching to split the row's full width evenly. */
+  widthClassName: string;
 }) {
   return (
-    <div className="flex-1 rounded-lyra-sm border border-lyra-border-subtle">
+    <div className={cn("flex-shrink-0 rounded-lyra-sm border border-lyra-border-subtle", widthClassName)}>
       <div className="flex flex-col">
         {items.map((item, index) => (
           <React.Fragment key={item.key}>
@@ -437,25 +443,35 @@ function NavigationOrderingRow({
         aria-expanded={expanded}
         className="flex cursor-pointer items-center gap-6 px-4 py-3 hover:bg-lyra-state-hover"
       >
-        {/* No chevron of its own — the two list titles just below,
-         * each already carrying a chevron, are what signals there's
-         * something to open here (same "label + chevron means click
-         * me" convention `AppsPageLinkRow` already uses above). */}
-        <span className="w-[220px] flex-shrink-0 text-[14px] font-bold leading-5 text-lyra-fg-default">
+        {/* The row's own expand/collapse chevron — rotates 180° open
+         * vs. closed, same pattern as any other disclosure control. The
+         * two list titles below no longer carry their own chevrons;
+         * this is the only one that means "click to open/close". */}
+        <span className="flex w-[220px] flex-shrink-0 items-center gap-1.5 text-[14px] font-bold leading-5 text-lyra-fg-default">
           Navigation Ordering
+          <ChevronDown
+            className={cn(
+              "h-3.5 w-3.5 shrink-0 text-lyra-fg-disabled transition-transform duration-200",
+              expanded && "rotate-180"
+            )}
+            strokeWidth={2}
+            aria-hidden="true"
+          />
         </span>
         {/* Always-visible labels for the two lists this row manages —
          * the affordance that there are two lists here, and that
          * they're each independently orderable, even before opening
-         * this row. */}
-        <div className="flex flex-1 items-center gap-4">
-          <span className="flex flex-1 items-center gap-1 text-[13px] font-bold leading-5 text-lyra-fg-default">
+         * this row. Fixed, content-sized widths (not flex-1) so the
+         * columns sit left-aligned next to each other — Left
+         * Navigation Order narrower, App Space Order wide enough for
+         * its longer labels — instead of both stretching to split the
+         * full row width. */}
+        <div className="flex items-center gap-4">
+          <span className="w-[168px] flex-shrink-0 truncate text-[13px] font-bold leading-5 text-lyra-fg-default">
             Left Navigation Order
-            <ChevronRight className="h-3 w-3 shrink-0 text-lyra-fg-disabled" strokeWidth={2} aria-hidden="true" />
           </span>
-          <span className="flex flex-1 items-center gap-1 text-[13px] font-bold leading-5 text-lyra-fg-default">
+          <span className="w-[208px] flex-shrink-0 truncate text-[13px] font-bold leading-5 text-lyra-fg-default">
             App Space Order
-            <ChevronRight className="h-3 w-3 shrink-0 text-lyra-fg-disabled" strokeWidth={2} aria-hidden="true" />
           </span>
         </div>
         <div onClick={(e) => e.stopPropagation()}>
@@ -468,7 +484,7 @@ function NavigationOrderingRow({
            * width above, so the two lists below line up under their
            * titles rather than under the row label. */}
           <div className="w-[220px] flex-shrink-0" aria-hidden="true" />
-          <div className="flex flex-1 gap-4">
+          <div className="flex gap-4">
             <MiniOrderList
               items={leftNavItems}
               draggingKey={draggingKey}
@@ -477,6 +493,7 @@ function NavigationOrderingRow({
               onDragEnd={onDragEnd}
               onMoveUp={onNavMoveUp}
               onMoveDown={onNavMoveDown}
+              widthClassName="w-[168px]"
             />
             <MiniOrderList
               items={appSpaceItems}
@@ -486,6 +503,7 @@ function NavigationOrderingRow({
               onDragEnd={onDragEnd}
               onMoveUp={onAppSpaceMoveUp}
               onMoveDown={onAppSpaceMoveDown}
+              widthClassName="w-[208px]"
             />
           </div>
         </div>
