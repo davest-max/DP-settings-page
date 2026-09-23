@@ -483,10 +483,10 @@ function NavigationOrderingRow({
          * its longer labels — instead of both stretching to split the
          * full row width. */}
         <div className="flex items-center gap-4">
-          <span className="w-[168px] flex-shrink-0 truncate text-[13px] font-bold leading-5 text-lyra-fg-default">
+          <span className="w-[168px] flex-shrink-0 truncate text-[13px] font-medium leading-5 text-lyra-fg-default">
             Left Navigation Order
           </span>
-          <span className="w-[168px] flex-shrink-0 truncate text-[13px] font-bold leading-5 text-lyra-fg-default">
+          <span className="w-[168px] flex-shrink-0 truncate text-[13px] font-medium leading-5 text-lyra-fg-default">
             App Space Order
           </span>
         </div>
