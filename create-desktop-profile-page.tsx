@@ -1018,12 +1018,22 @@ export function CreateDesktopProfilePage({
 
             {/* ── Apps ──
              * AW-61857, rev. 2 — these rows are plain again (on/off
-             * only). Reordering lives in its own "Navigation Ordering"
-             * section below instead — see `NavigationOrderingRow`
-             * above for why. */}
+             * only). Reordering lives in its own "Navigation" section
+             * below instead — see `NavigationOrderingRow` above for
+             * why. Agent Settings Page is pinned first in this list,
+             * ahead of the toggle rows — it's not an app toggle, it's a
+             * page you drill into, and `AppsPageLinkRow` lists its three
+             * real tabs (in place of the old generic "3 sections"
+             * caption) with the whole row as the click target through
+             * to the current build. */}
             <section>
               <SectionHeader>Apps</SectionHeader>
               <div className="flex flex-col rounded-b-lyra-sm border border-lyra-border-subtle">
+                <AppsPageLinkRow
+                  label="Agent Settings Page"
+                  description="Login & Voice Preferences, A/V Notifications, Display & Keyboard"
+                  onClick={() => setTab("settings-page")}
+                />
                 {APPS.map((app) => {
                   const isReviewItem = aiDraftPreview && app.key === "queue-counter";
                   return (
@@ -1050,30 +1060,11 @@ export function CreateDesktopProfilePage({
               </div>
             </section>
 
-            {/* ── Agent Settings Page (AW-35954) ──
-             * Its own section now, between Apps and Navigation, rather
-             * than pinned as the first row inside Apps — it's not an app
-             * toggle, it's a page you drill into. `AppsPageLinkRow` lists
-             * the settings page's three real tabs (in place of the old
-             * generic "3 sections" caption) and keeps the whole row as
-             * the click target through to the current build. */}
-            <section>
-              <SectionHeader>Agent Settings Page</SectionHeader>
-              <div className="flex flex-col rounded-b-lyra-sm border border-lyra-border-subtle">
-                <AppsPageLinkRow
-                  label="Agent Settings Page"
-                  description="Login & Voice Preferences, A/V Notifications, Display & Keyboard"
-                  onClick={() => setTab("settings-page")}
-                />
-              </div>
-            </section>
-
             {/* ── Navigation ──
-             * Its own section now, between Agent Settings Page and
-             * Additional Settings, rather than living as the last row
-             * inside Apps — it governs two whole lists (Left Nav / App
-             * Space), not a single on/off toggle, so it reads oddly
-             * folded into that grid. */}
+             * Its own section now, between Apps and Additional Settings,
+             * rather than living as the last row inside Apps — it governs
+             * two whole lists (Left Nav / App Space), not a single
+             * on/off toggle, so it reads oddly folded into that grid. */}
             <section>
               <SectionHeader>Navigation</SectionHeader>
               <div className="flex flex-col rounded-b-lyra-sm border border-lyra-border-subtle">
@@ -1321,11 +1312,10 @@ export function CreateDesktopProfilePage({
            * duplicating them, so the two stay in sync.
            *
            * No longer a peer tab next to Settings/Assigned Teams — the
-           * only way in is the "Agent Settings Page" row in its own
-           * section between Apps and Additional Settings (see
-           * `AppsPageLinkRow` above), so this reads as a page you drill
-           * into rather than one more tab among equals. The breadcrumb
-           * below (mirrors `PageHeader`'s own
+           * only way in is the "Agent Settings Page" row pinned at the
+           * top of the Apps grid (see `AppsPageLinkRow` above), so this
+           * reads as a page you drill into rather than one more tab among
+           * equals. The breadcrumb below (mirrors `PageHeader`'s own
            * "ParentName / Title" pattern, just scoped to this panel
            * instead of the page header) is the only way back. */}
           <TabPanel active={tab === "settings-page"} className="flex flex-col gap-4 px-6 py-6">
