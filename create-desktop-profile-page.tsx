@@ -1,6 +1,6 @@
 import * as React from "react";
 import { useState, useRef, useEffect } from "react";
-import { ArrowDown, ArrowUp, Box, CheckCircle2, ChevronDown, ChevronRight, GripVertical, MinusCircle, Trash2, X } from "lucide-react";
+import { ArrowDown, ArrowUp, Box, CheckCircle2, ChevronRight, GripVertical, MinusCircle, Trash2, X } from "lucide-react";
 import {
   cn,
   AdminShell,
@@ -275,6 +275,7 @@ const LEFT_NAV_ITEMS: OrderListItem[] = [
   { key: "nav-reporting", label: "Reporting" },
   { key: "nav-settings", label: "Settings" },
   { key: "nav-wem", label: "WEM" },
+  { key: "nav-internal-chat", label: "Internal Chat" },
   { key: "nav-help", label: "Help" },
 ];
 
@@ -305,6 +306,7 @@ const ORDER_ITEM_APP_KEY: Record<string, string> = {
   "custom-workspace": "custom-workspace",
   reporting: "reporting",
   wem: "wem",
+  "internal-chat": "conversations",
 };
 
 /** True unless this item maps to an Apps-section toggle that's off —
@@ -436,13 +438,11 @@ function MiniOrderList({
   );
 }
 
-/** The accordion itself: collapsed to one row (title + the shared
- * "Agent Editable" chip, both always visible) until clicked open. The
- * chip sits in a click-stopping wrapper so tapping it toggles agent
- * editability without also collapsing/expanding the row underneath it. */
+/** Always-open row (no accordion): title, the shared "Agent Editable"
+ * chip, and both lists all visible at once — no expand/collapse. Sole
+ * occupant of its own "Navigation" section, so it carries no top
+ * border of its own (the section wrapper already supplies one). */
 function NavigationOrderingRow({
-  expanded,
-  onToggleExpanded,
   agentEditable,
   onToggleAgentEditable,
   leftNavItems,
@@ -457,8 +457,6 @@ function NavigationOrderingRow({
   onAppSpaceMoveUp,
   onAppSpaceMoveDown,
 }: {
-  expanded: boolean;
-  onToggleExpanded: () => void;
   agentEditable: boolean;
   onToggleAgentEditable: () => void;
   leftNavItems: OrderListItem[];
@@ -474,34 +472,10 @@ function NavigationOrderingRow({
   onAppSpaceMoveDown: (key: string) => void;
 }) {
   return (
-    <div className="border-t border-lyra-border-subtle">
-      <div
-        role="button"
-        tabIndex={0}
-        onClick={onToggleExpanded}
-        onKeyDown={(e) => {
-          if (e.key === "Enter" || e.key === " ") {
-            e.preventDefault();
-            onToggleExpanded();
-          }
-        }}
-        aria-expanded={expanded}
-        className="flex cursor-pointer items-center gap-6 px-4 py-3 hover:bg-lyra-state-hover"
-      >
-        {/* The row's own expand/collapse chevron — rotates 180° open
-         * vs. closed, same pattern as any other disclosure control. The
-         * two list titles below no longer carry their own chevrons;
-         * this is the only one that means "click to open/close". */}
+    <div>
+      <div className="flex items-center gap-6 px-4 py-3">
         <span className="flex w-[220px] flex-shrink-0 items-center gap-1.5 text-[14px] font-bold leading-5 text-lyra-fg-default">
-          Navigation Ordering
-          <ChevronDown
-            className={cn(
-              "h-3.5 w-3.5 shrink-0 text-lyra-fg-disabled transition-transform duration-200",
-              expanded && "rotate-180"
-            )}
-            strokeWidth={2}
-            aria-hidden="true"
-          />
+          Set Order
         </span>
         {/* Always-visible labels for the two lists this row manages —
          * the affordance that there are two lists here, and that
@@ -512,48 +486,44 @@ function NavigationOrderingRow({
          * its longer labels — instead of both stretching to split the
          * full row width. */}
         <div className="flex items-center gap-4">
-          <span className="w-[168px] flex-shrink-0 truncate text-[13px] font-bold leading-5 text-lyra-fg-default">
+          <span className="w-[168px] flex-shrink-0 truncate text-[13px] font-medium leading-5 text-lyra-fg-default">
             Left Navigation Order
           </span>
-          <span className="w-[168px] flex-shrink-0 truncate text-[13px] font-bold leading-5 text-lyra-fg-default">
+          <span className="w-[168px] flex-shrink-0 truncate text-[13px] font-medium leading-5 text-lyra-fg-default">
             App Space Order
           </span>
         </div>
-        <div onClick={(e) => e.stopPropagation()}>
-          <ToggleChip label="Agent Editable" selected={agentEditable} onToggle={onToggleAgentEditable} />
+        <ToggleChip label="Agent Editable" selected={agentEditable} onToggle={onToggleAgentEditable} />
+      </div>
+      <div className="flex items-start gap-6 px-4 pb-4">
+        {/* Empty spacer matching the "Set Order" label's
+         * width above, so the two lists below line up under their
+         * titles rather than under the row label. */}
+        <div className="w-[220px] flex-shrink-0" aria-hidden="true" />
+        <div className="flex gap-4">
+          <MiniOrderList
+            items={leftNavItems}
+            draggingKey={draggingKey}
+            onDragStart={(key) => onDragStart("nav", key)}
+            onDragEnter={onNavDragEnter}
+            onDragEnd={onDragEnd}
+            onMoveUp={onNavMoveUp}
+            onMoveDown={onNavMoveDown}
+            widthClassName="w-[168px]"
+          />
+          <MiniOrderList
+            items={appSpaceItems}
+            draggingKey={draggingKey}
+            onDragStart={(key) => onDragStart("app", key)}
+            onDragEnter={onAppSpaceDragEnter}
+            onDragEnd={onDragEnd}
+            onMoveUp={onAppSpaceMoveUp}
+            onMoveDown={onAppSpaceMoveDown}
+            widthClassName="w-[168px]"
+            showOverflowLabel={false}
+          />
         </div>
       </div>
-      {expanded && (
-        <div className="flex items-start gap-6 px-4 pb-4">
-          {/* Empty spacer matching the "Navigation Ordering" label's
-           * width above, so the two lists below line up under their
-           * titles rather than under the row label. */}
-          <div className="w-[220px] flex-shrink-0" aria-hidden="true" />
-          <div className="flex gap-4">
-            <MiniOrderList
-              items={leftNavItems}
-              draggingKey={draggingKey}
-              onDragStart={(key) => onDragStart("nav", key)}
-              onDragEnter={onNavDragEnter}
-              onDragEnd={onDragEnd}
-              onMoveUp={onNavMoveUp}
-              onMoveDown={onNavMoveDown}
-              widthClassName="w-[168px]"
-            />
-            <MiniOrderList
-              items={appSpaceItems}
-              draggingKey={draggingKey}
-              onDragStart={(key) => onDragStart("app", key)}
-              onDragEnter={onAppSpaceDragEnter}
-              onDragEnd={onDragEnd}
-              onMoveUp={onAppSpaceMoveUp}
-              onMoveDown={onAppSpaceMoveDown}
-              widthClassName="w-[168px]"
-              showOverflowLabel={false}
-            />
-          </div>
-        </div>
-      )}
     </div>
   );
 }
@@ -817,12 +787,11 @@ export function CreateDesktopProfilePage({
   const [quickBarAgentCustomization, setQuickBarAgentCustomization] = useState(true);
   const [screenPopAlwaysStealFocus, setScreenPopAlwaysStealFocus] = useState(false);
 
-  /* AW-61857, rev. 2 — order lives in the "Navigation Ordering"
-   * accordion at the bottom of Apps (see `NavigationOrderingRow`
-   * above), not on the Apps rows themselves. Left Nav and App Space
+  /* AW-61857, rev. 2 — order lives in its own "Navigation" section
+   * (see `NavigationOrderingRow` above), not on the Apps rows
+   * themselves. Left Nav and App Space
    * order independently; a single shared drag-state tags which list is
    * mid-drag, since only one list is ever being dragged at a time. */
-  const [navOrderingExpanded, setNavOrderingExpanded] = useState(false);
   const [leftNavOrder, setLeftNavOrder] = useState<string[]>(() => LEFT_NAV_ITEMS.map((i) => i.key));
   const [appSpaceOrder, setAppSpaceOrder] = useState<string[]>(() => APP_SPACE_ITEMS.map((i) => i.key));
   const [orderDrag, setOrderDrag] = useState<{ list: "nav" | "app"; key: string } | null>(null);
@@ -1049,17 +1018,12 @@ export function CreateDesktopProfilePage({
 
             {/* ── Apps ──
              * AW-61857, rev. 2 — these rows are plain again (on/off
-             * only). Reordering lives in the "Navigation Ordering" row
-             * at the bottom of this list instead — see
-             * `NavigationOrderingRow` above for why. */}
+             * only). Reordering lives in its own "Navigation Ordering"
+             * section below instead — see `NavigationOrderingRow`
+             * above for why. */}
             <section>
               <SectionHeader>Apps</SectionHeader>
               <div className="flex flex-col rounded-b-lyra-sm border border-lyra-border-subtle">
-                <AppsPageLinkRow
-                  label="Agent Settings Page"
-                  description="3 sections"
-                  onClick={() => setTab("settings-page")}
-                />
                 {APPS.map((app) => {
                   const isReviewItem = aiDraftPreview && app.key === "queue-counter";
                   return (
@@ -1083,9 +1047,37 @@ export function CreateDesktopProfilePage({
                     </SettingsFieldRow>
                   );
                 })}
+              </div>
+            </section>
+
+            {/* ── Agent Settings Page (AW-35954) ──
+             * Its own section now, between Apps and Navigation, rather
+             * than pinned as the first row inside Apps — it's not an app
+             * toggle, it's a page you drill into. `AppsPageLinkRow` lists
+             * the settings page's three real tabs (in place of the old
+             * generic "3 sections" caption) and keeps the whole row as
+             * the click target through to the current build. */}
+            <section>
+              <SectionHeader>Agent Settings Page</SectionHeader>
+              <div className="flex flex-col rounded-b-lyra-sm border border-lyra-border-subtle">
+                <AppsPageLinkRow
+                  label="Agent Settings Page"
+                  description="Login & Voice Preferences, A/V Notifications, Display & Keyboard"
+                  onClick={() => setTab("settings-page")}
+                />
+              </div>
+            </section>
+
+            {/* ── Navigation ──
+             * Its own section now, between Agent Settings Page and
+             * Additional Settings, rather than living as the last row
+             * inside Apps — it governs two whole lists (Left Nav / App
+             * Space), not a single on/off toggle, so it reads oddly
+             * folded into that grid. */}
+            <section>
+              <SectionHeader>Navigation</SectionHeader>
+              <div className="flex flex-col rounded-b-lyra-sm border border-lyra-border-subtle">
                 <NavigationOrderingRow
-                  expanded={navOrderingExpanded}
-                  onToggleExpanded={() => setNavOrderingExpanded((v) => !v)}
                   agentEditable={quickBarAgentCustomization}
                   onToggleAgentEditable={() => setQuickBarAgentCustomization((v) => !v)}
                   leftNavItems={leftNavItems}
@@ -1217,12 +1209,12 @@ export function CreateDesktopProfilePage({
                     aria-label="Agent-to-Patron Typing Indicators"
                   />
                 </SettingsFieldRow>
-                <SettingsFieldRow label="Screen Pops Always Steal Focus">
+                <SettingsFieldRow label="Screen Pops Always Take Focus">
                   <Switch
                     size="sm"
                     checked={screenPopAlwaysStealFocus}
                     onCheckedChange={setScreenPopAlwaysStealFocus}
-                    aria-label="Screen Pops Always Steal Focus"
+                    aria-label="Screen Pops Always Take Focus"
                   />
                 </SettingsFieldRow>
               </div>
@@ -1329,10 +1321,11 @@ export function CreateDesktopProfilePage({
            * duplicating them, so the two stay in sync.
            *
            * No longer a peer tab next to Settings/Assigned Teams — the
-           * only way in is the "Agent Settings Page" row pinned at the
-           * top of the Apps grid (see `AppsPageLinkRow` above), so this
-           * reads as a page you drill into rather than one more tab among
-           * equals. The breadcrumb below (mirrors `PageHeader`'s own
+           * only way in is the "Agent Settings Page" row in its own
+           * section between Apps and Additional Settings (see
+           * `AppsPageLinkRow` above), so this reads as a page you drill
+           * into rather than one more tab among equals. The breadcrumb
+           * below (mirrors `PageHeader`'s own
            * "ParentName / Title" pattern, just scoped to this panel
            * instead of the page header) is the only way back. */}
           <TabPanel active={tab === "settings-page"} className="flex flex-col gap-4 px-6 py-6">

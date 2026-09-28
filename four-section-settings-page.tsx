@@ -321,12 +321,12 @@ export function FourSectionSettingsPage() {
                     aria-label="Agent-to-Patron Typing Indicators"
                   />
                 </SettingsFieldRow>
-                <SettingsFieldRow label="Screen Pops Always Steal Focus" planned>
+                <SettingsFieldRow label="Screen Pops Always Take Focus" planned>
                   <Switch
                     size="sm"
                     checked={screenPopAlwaysStealFocus}
                     onCheckedChange={setScreenPopAlwaysStealFocus}
-                    aria-label="Screen Pops Always Steal Focus"
+                    aria-label="Screen Pops Always Take Focus"
                   />
                 </SettingsFieldRow>
               </div>
