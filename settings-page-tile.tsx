@@ -1,6 +1,6 @@
 import * as React from "react";
 import { useState } from "react";
-import { Box, Volume2 } from "lucide-react";
+import { Box, Eye, Volume2 } from "lucide-react";
 import {
   cn,
   AdminShell,
@@ -219,6 +219,7 @@ function GovernanceTableHeader() {
  * itself isn't there. */
 function GovernanceRow({
   label,
+  icon,
   componentEnabled,
   onComponentEnabledChange,
   visible,
@@ -228,6 +229,10 @@ function GovernanceRow({
   onGovernanceChange,
 }: {
   label: string;
+  /** Optional leading icon next to the label — e.g. distinguishing an
+   * Audio row from a Visual row once several are paired together under
+   * one event heading (see `AVNotificationsTab`). */
+  icon?: React.ReactNode;
   componentEnabled?: boolean;
   onComponentEnabledChange?: (v: boolean) => void;
   visible: boolean;
@@ -253,7 +258,17 @@ function GovernanceRow({
   };
   return (
     <div className="flex items-center gap-6 border-t border-lyra-border-subtle px-4 py-3 first:border-t-0">
-      <span className="w-[190px] flex-shrink-0 text-[14px] font-bold leading-5 text-lyra-fg-default">
+      <span
+        className={cn(
+          "flex w-[190px] flex-shrink-0 items-center gap-1.5 text-[14px] leading-5 text-lyra-fg-default",
+          /* Icon rows are the paired Audio/Visual labels under an event
+           * heading (see `AVNotificationsTab`) — lighter weight so they
+           * read as sub-labels under that heading rather than competing
+           * with it at the same bold weight every other row's label uses. */
+          icon ? "font-medium" : "font-bold"
+        )}
+      >
+        {icon}
         {label}
       </span>
       <div className="flex w-[56px] flex-shrink-0 items-center">
@@ -285,12 +300,15 @@ function GovernanceRow({
   );
 }
 
-/* ── A group divider inside a sub-tab (e.g. "Audio Notifications" vs.
- * "Visual Notifications") — same lightweight pattern explored in
- * settings-pattern-comparison.tsx's Option 3. ── */
+/* ── A group divider inside a sub-tab (e.g. each event heading pairing
+ * Audio + Visual in `AVNotificationsTab`) — title case, not the table
+ * header's small-caps treatment, so it reads as its own subheading
+ * rather than an extra column-header row. A stronger top border plus a
+ * plain (not container-tinted) background keeps it from visually
+ * fusing with `GovernanceTableHeader` directly above it. */
 function SubGroupLabel({ children }: { children: React.ReactNode }) {
   return (
-    <div className="border-t border-lyra-border-subtle bg-lyra-bg-surface-container-subtle px-4 py-1.5 text-[11px] font-semibold uppercase tracking-wide text-lyra-fg-secondary first:border-t-0">
+    <div className="border-t-2 border-lyra-border-default bg-lyra-bg-surface-base px-4 py-2 text-[13px] font-bold text-lyra-fg-default first:border-t-0">
       {children}
     </div>
   );
@@ -519,48 +537,54 @@ export function AVNotificationsTab() {
   return (
     <div className="rounded-b-lyra-sm border border-lyra-border-subtle">
       <GovernanceTableHeader />
-      <SubGroupLabel>Audio Notifications</SubGroupLabel>
+      {/* Grouped by event rather than by Audio/Visual — the two are
+       * associated settings for the same event, so "New Voice Call"'s
+       * audio and visual rows now sit right next to each other under
+       * one heading instead of living in two separate blocks a full
+       * scroll apart. Each row's own icon + "Audio"/"Visual" label
+       * says which is which — before, that only came from which big
+       * section you were scrolled into. */}
       {NOTIFICATION_EVENTS.map((evt) => (
-        <GovernanceRow
-          key={evt.key}
-          label={evt.label}
-          componentEnabled={audioEnabled[evt.key]}
-          onComponentEnabledChange={(v) => setAudioEnabled((p) => ({ ...p, [evt.key]: v }))}
-          visible={audioVisible[evt.key]}
-          onVisibleChange={(v) => setAudioVisible((p) => ({ ...p, [evt.key]: v }))}
-          governance={audioGov[evt.key]}
-          onGovernanceChange={(v) => setAudioGov((p) => ({ ...p, [evt.key]: v }))}
-          value={
-            <>
-              <Select
-                options={TONE_OPTIONS}
-                value={audioTone[evt.key]}
-                onValueChange={(v) => setAudioTone((p) => ({ ...p, [evt.key]: v }))}
-                className="w-[180px]"
-                disabled={!audioEnabled[evt.key]}
-                aria-label={`${evt.label} tone`}
-              />
-              <TonePreviewButton
-                tone={audioTone[evt.key]}
-                ariaLabel={`Preview ${evt.label} tone`}
-                disabled={!audioEnabled[evt.key]}
-              />
-            </>
-          }
-        />
-      ))}
-      <SubGroupLabel>Visual Notifications</SubGroupLabel>
-      {NOTIFICATION_EVENTS.map((evt) => (
-        <GovernanceRow
-          key={evt.key}
-          label={evt.label}
-          componentEnabled={visualEnabled[evt.key]}
-          onComponentEnabledChange={(v) => setVisualEnabled((p) => ({ ...p, [evt.key]: v }))}
-          visible={visualVisible[evt.key]}
-          onVisibleChange={(v) => setVisualVisible((p) => ({ ...p, [evt.key]: v }))}
-          governance={visualGov[evt.key]}
-          onGovernanceChange={(v) => setVisualGov((p) => ({ ...p, [evt.key]: v }))}
-        />
+        <React.Fragment key={evt.key}>
+          <SubGroupLabel>{evt.label}</SubGroupLabel>
+          <GovernanceRow
+            label="Audio"
+            icon={<Volume2 className="h-3.5 w-3.5 text-lyra-fg-secondary" strokeWidth={1.5} aria-hidden="true" />}
+            componentEnabled={audioEnabled[evt.key]}
+            onComponentEnabledChange={(v) => setAudioEnabled((p) => ({ ...p, [evt.key]: v }))}
+            visible={audioVisible[evt.key]}
+            onVisibleChange={(v) => setAudioVisible((p) => ({ ...p, [evt.key]: v }))}
+            governance={audioGov[evt.key]}
+            onGovernanceChange={(v) => setAudioGov((p) => ({ ...p, [evt.key]: v }))}
+            value={
+              <>
+                <Select
+                  options={TONE_OPTIONS}
+                  value={audioTone[evt.key]}
+                  onValueChange={(v) => setAudioTone((p) => ({ ...p, [evt.key]: v }))}
+                  className="w-[180px]"
+                  disabled={!audioEnabled[evt.key]}
+                  aria-label={`${evt.label} tone`}
+                />
+                <TonePreviewButton
+                  tone={audioTone[evt.key]}
+                  ariaLabel={`Preview ${evt.label} tone`}
+                  disabled={!audioEnabled[evt.key]}
+                />
+              </>
+            }
+          />
+          <GovernanceRow
+            label="Visual"
+            icon={<Eye className="h-3.5 w-3.5 text-lyra-fg-secondary" strokeWidth={1.5} aria-hidden="true" />}
+            componentEnabled={visualEnabled[evt.key]}
+            onComponentEnabledChange={(v) => setVisualEnabled((p) => ({ ...p, [evt.key]: v }))}
+            visible={visualVisible[evt.key]}
+            onVisibleChange={(v) => setVisualVisible((p) => ({ ...p, [evt.key]: v }))}
+            governance={visualGov[evt.key]}
+            onGovernanceChange={(v) => setVisualGov((p) => ({ ...p, [evt.key]: v }))}
+          />
+        </React.Fragment>
       ))}
     </div>
   );
