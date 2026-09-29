@@ -1,6 +1,6 @@
 import * as React from "react";
 import { useState, useRef, useEffect } from "react";
-import { ArrowDown, ArrowUp, Box, CheckCircle2, ChevronRight, GripVertical, MinusCircle, Trash2, X } from "lucide-react";
+import { ArrowDown, ArrowUp, Box, CheckCircle2, GripVertical, MinusCircle, Trash2, X } from "lucide-react";
 import {
   cn,
   AdminShell,
@@ -25,6 +25,7 @@ import {
   LoginVoicePreferencesTab,
   AVNotificationsTab,
   DisplayKeyboardTab,
+  ReportAnIssueTab,
 } from "./settings-page-tile";
 import { AppShellHeader } from "./app-header";
 
@@ -191,55 +192,6 @@ const SettingsFieldRow = React.forwardRef<
 });
 SettingsFieldRow.displayName = "SettingsFieldRow";
 
-/* ── A row that links into a whole other page's worth of settings,
- * instead of holding a single show/hide flag like every other row in
- * this table. Still not a `SettingsFieldRow` + trailing control — the
- * whole row stays the click target (Dave's call, kept from the earlier
- * version) — but it now shares `SettingsFieldRow`'s exact two-column
- * shape (fixed label column, flex-1 second column) instead of stacking
- * label+caption inside column one, so it reads as one row among the
- * Apps table's other rows rather than a taller, differently-shaped one.
- * The description is left as plain secondary text, not link-styled —
- * with the whole row already clickable, underlining just the caption
- * would suggest only that part responds to a click.
- *
- * The "there's something to click here" signal is a small, muted
- * chevron sitting right next to the label instead of pinned to the
- * row's far edge (where it used to live, and read as disconnected from
- * the label it was meant to reinforce) — anchoring it to the label ties
- * the cue to the one piece of text every glance at the row lands on
- * first.
- *
- * Currently used for one row (Agent Settings Page), pinned first in the
- * Apps list so it doesn't get lost after nine toggle rows. The shape is
- * its own component rather than folded into `SettingsFieldRow` so more
- * pages can get the same treatment later without another one-off — see
- * Dave's framing: "a future where all pages are listed... to reveal more
- * detailed settings beyond just show/hide." */
-function AppsPageLinkRow({
-  label,
-  description,
-  onClick,
-}: {
-  label: string;
-  description: string;
-  onClick: () => void;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className="flex items-center gap-6 border-t border-lyra-border-subtle px-4 py-3 text-left first:border-t-0 hover:bg-lyra-state-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-lyra-border-focus"
-    >
-      <span className="flex w-[220px] flex-shrink-0 items-center gap-1 text-[14px] font-bold leading-5 text-lyra-fg-default">
-        {label}
-        <ChevronRight className="h-3 w-3 text-lyra-fg-disabled" strokeWidth={2} aria-hidden="true" />
-      </span>
-      <span className="lyra-body-sm flex-1 text-lyra-fg-secondary">{description}</span>
-    </button>
-  );
-}
-
 /* AW-61857, rev. 2 — Dave's call: scale the first pass back. The Apps
  * rows above go back to plain toggle rows (no grip, no arrows, no
  * header caption) — reordering doesn't live there anymore. Instead one
@@ -310,8 +262,9 @@ const ORDER_ITEM_APP_KEY: Record<string, string> = {
 };
 
 /** True unless this item maps to an Apps-section toggle that's off —
- * used to drop off/hidden apps from both order lists entirely (not
- * just dim them), per Dave's call. */
+ * an off app still appears in both order lists (see `MiniOrderList`
+ * below), just pushed under everything that's on and shown disabled,
+ * rather than removed outright. */
 function isOrderItemAppOn(itemKey: string, apps: Record<string, boolean>): boolean {
   const suffix = itemKey.replace(/^nav-|^appspace-/, "");
   const appKey = ORDER_ITEM_APP_KEY[suffix];
@@ -359,13 +312,16 @@ function AppMoveButton({
   );
 }
 
-/** One of the two independent lists inside the expanded "Navigation
- * Ordering" row. `items` is already the caller's fully-filtered,
- * ordered list — an app that's off/hidden is never passed in at all
- * (see the App Space Order filter below), not just dimmed, so there's
- * nothing here to distinguish "off" from "not in this list." */
+/** One of the two independent lists inside the "Navigation" row's
+ * always-open Menu Navigation section. `items` is the caller's fully
+ * ordered list, on-items first — everything from index `onCount`
+ * onward is an app that's off in the Apps section above: still shown,
+ * so an admin always sees the full menu regardless of what's toggled,
+ * but pushed below a divider and rendered disabled (no drag, no
+ * up/down) since its position is decided by that toggle, not by hand. */
 function MiniOrderList({
   items,
+  onCount,
   draggingKey,
   onDragStart,
   onDragEnter,
@@ -376,6 +332,7 @@ function MiniOrderList({
   showOverflowLabel = true,
 }: {
   items: OrderListItem[];
+  onCount: number;
   draggingKey: string | null;
   onDragStart: (key: string) => void;
   onDragEnter: (key: string) => void;
@@ -389,49 +346,71 @@ function MiniOrderList({
   widthClassName: string;
   /** The shown/more cutoff divider always renders — this only toggles
    * its "More ellipsis" wording off (App Space Order, per Dave's call),
-   * keeping the line itself as the shown/more boundary marker. */
+   * keeping the line itself as the shown/more boundary marker. The
+   * off-items divider's "Off" wording always shows on both lists
+   * regardless — unlike "More ellipsis" it isn't redundant to repeat,
+   * since each list's off items can differ. */
   showOverflowLabel?: boolean;
 }) {
+  const hasOffItems = onCount < items.length;
   return (
     <div className={cn("flex-shrink-0 rounded-lyra-sm border border-lyra-border-subtle", widthClassName)}>
       <div className="flex flex-col">
-        {items.map((item, index) => (
-          <React.Fragment key={item.key}>
-            {index === APP_RAIL_CAPACITY && (
-              <div className="border-t border-lyra-border-subtle border-b border-b-lyra-border-strong px-3 py-1 text-[11px] italic leading-4 text-lyra-fg-disabled">
-                {showOverflowLabel && "More ellipsis"}
-              </div>
-            )}
-            <div
-              draggable
-              onDragStart={() => onDragStart(item.key)}
-              onDragEnter={() => onDragEnter(item.key)}
-              onDragEnd={onDragEnd}
-              onDragOver={(e) => e.preventDefault()}
-              className={cn(
-                "flex items-center gap-1.5 border-t border-lyra-border-subtle px-3 py-1.5 text-[12px] leading-4 text-lyra-fg-default first:border-t-0",
-                draggingKey === item.key && "opacity-40"
+        {items.map((item, index) => {
+          const isOff = index >= onCount;
+          return (
+            <React.Fragment key={item.key}>
+              {index === APP_RAIL_CAPACITY && index < onCount && (
+                <div className="border-t border-lyra-border-subtle border-b border-b-lyra-border-strong px-3 py-1 text-[11px] italic leading-4 text-lyra-fg-disabled">
+                  {showOverflowLabel && "More ellipsis"}
+                </div>
               )}
-            >
-              <GripVertical
-                className="h-3 w-3 shrink-0 cursor-grab text-lyra-fg-disabled active:cursor-grabbing"
-                strokeWidth={1.5}
-                aria-hidden="true"
-              />
-              <span className="flex-1 truncate">{item.label}</span>
-              <div className="flex items-center gap-0.5">
-                <AppMoveButton direction="up" disabled={index === 0} onMove={() => onMoveUp(item.key)} />
-                <AppMoveButton
-                  direction="down"
-                  disabled={index === items.length - 1}
-                  onMove={() => onMoveDown(item.key)}
+              {index === onCount && onCount > 0 && hasOffItems && (
+                <div className="border-t border-lyra-border-subtle px-3 py-1 text-[11px] italic leading-4 text-lyra-fg-disabled">
+                  Off
+                </div>
+              )}
+              <div
+                draggable={!isOff}
+                onDragStart={() => !isOff && onDragStart(item.key)}
+                onDragEnter={() => !isOff && onDragEnter(item.key)}
+                onDragEnd={onDragEnd}
+                onDragOver={(e) => e.preventDefault()}
+                className={cn(
+                  "flex items-center gap-1.5 border-t border-lyra-border-subtle px-3 py-1.5 text-[12px] leading-4 first:border-t-0",
+                  isOff
+                    ? "bg-lyra-bg-surface-container-subtle text-lyra-fg-disabled"
+                    : "text-lyra-fg-default",
+                  draggingKey === item.key && "opacity-40"
+                )}
+              >
+                <GripVertical
+                  className={cn(
+                    "h-3 w-3 shrink-0 text-lyra-fg-disabled",
+                    isOff ? "cursor-not-allowed" : "cursor-grab active:cursor-grabbing"
+                  )}
+                  strokeWidth={1.5}
+                  aria-hidden="true"
                 />
+                <span className="flex-1 truncate">{item.label}</span>
+                <div className="flex items-center gap-0.5">
+                  <AppMoveButton
+                    direction="up"
+                    disabled={isOff || index === 0}
+                    onMove={() => onMoveUp(item.key)}
+                  />
+                  <AppMoveButton
+                    direction="down"
+                    disabled={isOff || index === onCount - 1}
+                    onMove={() => onMoveDown(item.key)}
+                  />
+                </div>
               </div>
-            </div>
-          </React.Fragment>
-        ))}
+            </React.Fragment>
+          );
+        })}
         {items.length === 0 && (
-          <div className="px-3 py-2 text-[12px] text-lyra-fg-disabled">Nothing turned on yet.</div>
+          <div className="px-3 py-2 text-[12px] text-lyra-fg-disabled">No apps in this profile yet.</div>
         )}
       </div>
     </div>
@@ -446,7 +425,9 @@ function NavigationOrderingRow({
   agentEditable,
   onToggleAgentEditable,
   leftNavItems,
+  leftNavOnCount,
   appSpaceItems,
+  appSpaceOnCount,
   draggingKey,
   onDragStart,
   onDragEnd,
@@ -460,7 +441,11 @@ function NavigationOrderingRow({
   agentEditable: boolean;
   onToggleAgentEditable: () => void;
   leftNavItems: OrderListItem[];
+  /** How many of `leftNavItems`, counting from the front, are "on" —
+   * everything from this index on is an off app, shown but disabled. */
+  leftNavOnCount: number;
   appSpaceItems: OrderListItem[];
+  appSpaceOnCount: number;
   draggingKey: string | null;
   onDragStart: (list: "nav" | "app", key: string) => void;
   onDragEnd: () => void;
@@ -474,9 +459,6 @@ function NavigationOrderingRow({
   return (
     <div>
       <div className="flex items-center gap-6 px-4 py-3">
-        <span className="flex w-[220px] flex-shrink-0 items-center gap-1.5 text-[14px] font-bold leading-5 text-lyra-fg-default">
-          Set Order
-        </span>
         {/* Always-visible labels for the two lists this row manages —
          * the affordance that there are two lists here, and that
          * they're each independently orderable, even before opening
@@ -487,22 +469,19 @@ function NavigationOrderingRow({
          * full row width. */}
         <div className="flex items-center gap-4">
           <span className="w-[168px] flex-shrink-0 truncate text-[13px] font-medium leading-5 text-lyra-fg-default">
-            Left Navigation Order
+            Left Menu Order
           </span>
-          <span className="w-[168px] flex-shrink-0 truncate text-[13px] font-medium leading-5 text-lyra-fg-default">
-            App Space Order
+          <span className="w-[190px] flex-shrink-0 truncate text-[13px] font-medium leading-5 text-lyra-fg-default">
+            App Space Menu Order
           </span>
         </div>
         <ToggleChip label="Agent Editable" selected={agentEditable} onToggle={onToggleAgentEditable} />
       </div>
       <div className="flex items-start gap-6 px-4 pb-4">
-        {/* Empty spacer matching the "Set Order" label's
-         * width above, so the two lists below line up under their
-         * titles rather than under the row label. */}
-        <div className="w-[220px] flex-shrink-0" aria-hidden="true" />
         <div className="flex gap-4">
           <MiniOrderList
             items={leftNavItems}
+            onCount={leftNavOnCount}
             draggingKey={draggingKey}
             onDragStart={(key) => onDragStart("nav", key)}
             onDragEnter={onNavDragEnter}
@@ -513,13 +492,14 @@ function NavigationOrderingRow({
           />
           <MiniOrderList
             items={appSpaceItems}
+            onCount={appSpaceOnCount}
             draggingKey={draggingKey}
             onDragStart={(key) => onDragStart("app", key)}
             onDragEnter={onAppSpaceDragEnter}
             onDragEnd={onDragEnd}
             onMoveUp={onAppSpaceMoveUp}
             onMoveDown={onAppSpaceMoveDown}
-            widthClassName="w-[168px]"
+            widthClassName="w-[190px]"
             showOverflowLabel={false}
           />
         </div>
@@ -702,7 +682,7 @@ interface CreateDesktopProfilePageProps {
   /** Which outer tab to land on — used to deep-link here (e.g. from the Review Queue) straight to a specific surface instead of always starting on Settings. */
   initialTab?: "settings" | "teams" | "settings-page";
   /** Which Agent Settings Page inner tab to land on, when `initialTab` is "settings-page". */
-  initialSettingsPageInnerTab?: "login-voice" | "av-notifications" | "display-keyboard";
+  initialSettingsPageInnerTab?: "login-voice" | "av-notifications" | "display-keyboard" | "report-issue";
   /** Scrolls to and highlights one of the 3 AI-flagged rows on mount — the same jump the in-page review banner's chips perform, reachable from outside the page (e.g. the Review Queue). Only meaningful in "create" mode, where those rows exist. */
   initialFocusItem?: ReviewItemKey;
   /**
@@ -736,7 +716,7 @@ export function CreateDesktopProfilePage({
 }: CreateDesktopProfilePageProps) {
   const [tab, setTab] = useState<"settings" | "teams" | "settings-page">(initialTab);
   const [settingsPageInnerTab, setSettingsPageInnerTab] = useState<
-    "login-voice" | "av-notifications" | "display-keyboard"
+    "login-voice" | "av-notifications" | "display-keyboard" | "report-issue"
   >(initialSettingsPageInnerTab);
 
   /* Defaults reflect this build's one demo scenario — an AI agent
@@ -796,10 +776,22 @@ export function CreateDesktopProfilePage({
   const [appSpaceOrder, setAppSpaceOrder] = useState<string[]>(() => APP_SPACE_ITEMS.map((i) => i.key));
   const [orderDrag, setOrderDrag] = useState<{ list: "nav" | "app"; key: string } | null>(null);
 
+  /* Move-up/down only ever fires from an "on" item's arrows — an off
+   * item's arrows are disabled (see `MiniOrderList`) — so this swaps
+   * with the nearest other ON item specifically, rather than the raw
+   * adjacent array slot. Off items keep whatever raw position they're
+   * already in either way, so an off item sitting between two on items
+   * in storage never silently absorbs a move the admin can't see
+   * happen (it's not rendered next to the item being moved). */
   function swapAdjacent(order: string[], key: string, direction: "up" | "down"): string[] {
+    const onKeys = order.filter((k) => isOrderItemAppOn(k, apps));
+    const onIdx = onKeys.indexOf(key);
+    if (onIdx === -1) return order;
+    const targetOnIdx = direction === "up" ? onIdx - 1 : onIdx + 1;
+    if (targetOnIdx < 0 || targetOnIdx >= onKeys.length) return order;
+    const targetKey = onKeys[targetOnIdx];
     const idx = order.indexOf(key);
-    const targetIdx = direction === "up" ? idx - 1 : idx + 1;
-    if (targetIdx < 0 || targetIdx >= order.length) return order;
+    const targetIdx = order.indexOf(targetKey);
     const next = [...order];
     [next[idx], next[targetIdx]] = [next[targetIdx], next[idx]];
     return next;
@@ -828,18 +820,24 @@ export function CreateDesktopProfilePage({
     setAppSpaceOrder((prev) => reorderTo(prev, orderDrag.key, overKey));
   }
 
-  // An app turned off in the Apps section above doesn't show in either
-  // list at all, not just dimmed — its slot in `leftNavOrder`/
-  // `appSpaceOrder` is kept, though, so re-enabling it restores
-  // wherever it was left rather than appending to the end.
-  const leftNavItems = leftNavOrder
-    .filter((key) => isOrderItemAppOn(key, apps))
-    .map((key) => LEFT_NAV_ITEMS.find((i) => i.key === key)!);
-  // Mirrors Left Navigation Order's item set (see `APP_SPACE_ITEMS`),
-  // filtered by the same Apps-section toggles.
-  const appSpaceItems = appSpaceOrder
-    .filter((key) => isOrderItemAppOn(key, apps))
-    .map((key) => APP_SPACE_ITEMS.find((i) => i.key === key)!);
+  /* An app turned off in the Apps section above still shows in both
+   * order lists — just pushed under everything that's on, past a
+   * divider, and disabled (see `MiniOrderList`) — rather than removed
+   * outright. `leftNavOrder`/`appSpaceOrder` themselves keep every
+   * item's original stored position regardless of on/off (so
+   * re-enabling an app restores it to wherever it was left rather than
+   * appending to the end); this just reads them out on-items-first for
+   * display. `onCount` tells `MiniOrderList` where that split falls. */
+  function orderedForDisplay(order: string[], source: OrderListItem[]) {
+    const items = order.map((key) => source.find((i) => i.key === key)!);
+    const on = items.filter((item) => isOrderItemAppOn(item.key, apps));
+    const off = items.filter((item) => !isOrderItemAppOn(item.key, apps));
+    return { items: [...on, ...off], onCount: on.length };
+  }
+  const { items: leftNavItems, onCount: leftNavOnCount } = orderedForDisplay(leftNavOrder, LEFT_NAV_ITEMS);
+  // Mirrors Left Menu Order's item set (see `APP_SPACE_ITEMS`), split by
+  // the same Apps-section toggles.
+  const { items: appSpaceItems, onCount: appSpaceOnCount } = orderedForDisplay(appSpaceOrder, APP_SPACE_ITEMS);
 
   /* ── "Agent-drafted profile" preview ──
    * A sketch of what this screen looks like when it's showing a profile an
@@ -981,22 +979,19 @@ export function CreateDesktopProfilePage({
                   </div>
                 </div>
               )}
-              {/* Hidden while viewing Agent Settings Page — it's no longer a
-               * peer tab (see below), so a tab bar with nothing in it
-               * active would just be confusing. The breadcrumb inside
-               * that panel is the only way in or out of it now. */}
-              {tab !== "settings-page" && (
-                <TabList className="px-6">
-                  <Tab active={tab === "settings"} onClick={() => setTab("settings")}>
-                    Settings
+              <TabList className="px-6">
+                <Tab active={tab === "settings"} onClick={() => setTab("settings")}>
+                  General
+                </Tab>
+                <Tab active={tab === "settings-page"} onClick={() => setTab("settings-page")}>
+                  Agent Settings Page
+                </Tab>
+                {mode === "edit" && (
+                  <Tab active={tab === "teams"} onClick={() => setTab("teams")}>
+                    Assigned Teams
                   </Tab>
-                  {mode === "edit" && (
-                    <Tab active={tab === "teams"} onClick={() => setTab("teams")}>
-                      Assigned Teams
-                    </Tab>
-                  )}
-                </TabList>
-              )}
+                )}
+              </TabList>
 
           <TabPanel active={tab === "settings"} className="flex flex-col gap-6 px-6 py-6">
             <div className="flex gap-6">
@@ -1020,20 +1015,12 @@ export function CreateDesktopProfilePage({
              * AW-61857, rev. 2 — these rows are plain again (on/off
              * only). Reordering lives in its own "Navigation" section
              * below instead — see `NavigationOrderingRow` above for
-             * why. Agent Settings Page is pinned first in this list,
-             * ahead of the toggle rows — it's not an app toggle, it's a
-             * page you drill into, and `AppsPageLinkRow` lists its three
-             * real tabs (in place of the old generic "3 sections"
-             * caption) with the whole row as the click target through
-             * to the current build. */}
+             * why. Agent Settings Page moved out to its own top-level
+             * tab next to General (see the `TabList` above) — it's not
+             * an app toggle, so it no longer has a row here at all. */}
             <section>
-              <SectionHeader>Apps</SectionHeader>
+              <SectionHeader>App Visibility</SectionHeader>
               <div className="flex flex-col rounded-b-lyra-sm border border-lyra-border-subtle">
-                <AppsPageLinkRow
-                  label="Agent Settings Page"
-                  description="Login & Voice Preferences, A/V Notifications, Display & Keyboard"
-                  onClick={() => setTab("settings-page")}
-                />
                 {APPS.map((app) => {
                   const isReviewItem = aiDraftPreview && app.key === "queue-counter";
                   return (
@@ -1066,13 +1053,15 @@ export function CreateDesktopProfilePage({
              * two whole lists (Left Nav / App Space), not a single
              * on/off toggle, so it reads oddly folded into that grid. */}
             <section>
-              <SectionHeader>Navigation</SectionHeader>
+              <SectionHeader>Menu Navigation</SectionHeader>
               <div className="flex flex-col rounded-b-lyra-sm border border-lyra-border-subtle">
                 <NavigationOrderingRow
                   agentEditable={quickBarAgentCustomization}
                   onToggleAgentEditable={() => setQuickBarAgentCustomization((v) => !v)}
                   leftNavItems={leftNavItems}
+                  leftNavOnCount={leftNavOnCount}
                   appSpaceItems={appSpaceItems}
+                  appSpaceOnCount={appSpaceOnCount}
                   draggingKey={orderDrag?.key ?? null}
                   onDragStart={(list, key) => setOrderDrag({ list, key })}
                   onDragEnd={() => setOrderDrag(null)}
@@ -1307,39 +1296,16 @@ export function CreateDesktopProfilePage({
 
           {/* ── Agent Settings Page (AW-35954) ──
            * Admin-facing show/hide + lock control over the agent's own
-           * Settings app, mirroring that app's 3 real sub-tabs. Reuses the
-           * governance components from settings-page-tile.tsx rather than
+           * Settings app, mirroring that app's real sub-tabs (Login &
+           * Voice Preferences, A/V Notifications, Display & Keyboard),
+           * plus a 4th, "Report an Issue". Reuses the governance
+           * components from settings-page-tile.tsx rather than
            * duplicating them, so the two stay in sync.
            *
-           * No longer a peer tab next to Settings/Assigned Teams — the
-           * only way in is the "Agent Settings Page" row pinned at the
-           * top of the Apps grid (see `AppsPageLinkRow` above), so this
-           * reads as a page you drill into rather than one more tab among
-           * equals. The breadcrumb below (mirrors `PageHeader`'s own
-           * "ParentName / Title" pattern, just scoped to this panel
-           * instead of the page header) is the only way back. */}
+           * A peer top-level tab next to General/Assigned Teams now, not
+           * a page drilled into from a row inside General — no
+           * breadcrumb needed, same as those other two tabs' panels. */}
           <TabPanel active={tab === "settings-page"} className="flex flex-col gap-4 px-6 py-6">
-            <nav aria-label="Breadcrumb">
-              <ol className="m-0 flex list-none items-center gap-2 p-0">
-                <li>
-                  <button
-                    type="button"
-                    onClick={() => setTab("settings")}
-                    className="text-[14px] font-bold leading-5 text-lyra-fg-secondary transition-colors hover:text-lyra-fg-default focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-lyra-border-focus"
-                  >
-                    Settings
-                  </button>
-                </li>
-                <li aria-hidden="true">
-                  <span className="text-[14px] leading-5 text-lyra-fg-secondary">/</span>
-                </li>
-                <li aria-current="page">
-                  <span className="text-[14px] font-bold leading-5 text-lyra-fg-default">
-                    Agent Settings Page
-                  </span>
-                </li>
-              </ol>
-            </nav>
             <TabList>
               <Tab
                 active={settingsPageInnerTab === "login-voice"}
@@ -1359,6 +1325,12 @@ export function CreateDesktopProfilePage({
               >
                 Display & Keyboard
               </Tab>
+              <Tab
+                active={settingsPageInnerTab === "report-issue"}
+                onClick={() => setSettingsPageInnerTab("report-issue")}
+              >
+                Report an Issue
+              </Tab>
             </TabList>
             <TabPanel active={settingsPageInnerTab === "login-voice"}>
               <LoginVoicePreferencesTab />
@@ -1368,6 +1340,9 @@ export function CreateDesktopProfilePage({
             </TabPanel>
             <TabPanel active={settingsPageInnerTab === "display-keyboard"}>
               <DisplayKeyboardTab />
+            </TabPanel>
+            <TabPanel active={settingsPageInnerTab === "report-issue"}>
+              <ReportAnIssueTab />
             </TabPanel>
           </TabPanel>
             </div>

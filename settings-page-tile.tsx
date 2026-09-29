@@ -227,6 +227,7 @@ function GovernanceRow({
   value,
   governance,
   onGovernanceChange,
+  agentAccessFallback,
 }: {
   label: string;
   /** Optional leading icon next to the label — e.g. distinguishing an
@@ -235,14 +236,20 @@ function GovernanceRow({
   icon?: React.ReactNode;
   componentEnabled?: boolean;
   onComponentEnabledChange?: (v: boolean) => void;
-  visible: boolean;
-  onVisibleChange: (v: boolean) => void;
+  /** Left undefined together with `governance` for a row with no Agent
+   * Access question at all (just a label + Component Enabled toggle,
+   * e.g. "Report an Issue") — the Agent Access column then shows
+   * `agentAccessFallback` (e.g. "N/A") instead of the two chips. */
+  visible?: boolean;
+  onVisibleChange?: (v: boolean) => void;
   value?: React.ReactNode;
-  governance: Governance;
-  onGovernanceChange: (v: Governance) => void;
+  governance?: Governance;
+  onGovernanceChange?: (v: Governance) => void;
+  agentAccessFallback?: React.ReactNode;
 }) {
   const hasComponentEnabled = componentEnabled !== undefined;
   const gatedOff = hasComponentEnabled && !componentEnabled;
+  const hasAgentAccess = visible !== undefined && governance !== undefined;
   /* Editable requires Visible — an agent can't be given edit access to
    * something they can't see. Turning Visible off while Editable is on
    * also drops governance back to "locked" so the two never go stale
@@ -250,6 +257,7 @@ function GovernanceRow({
    * ready to reappear the moment visibility comes back on). */
   const editableDisabled = gatedOff || !visible;
   const handleVisibleToggle = () => {
+    if (!onVisibleChange || !onGovernanceChange) return;
     const next = !visible;
     onVisibleChange(next);
     if (!next && governance === "editable") {
@@ -283,18 +291,24 @@ function GovernanceRow({
       </div>
       <div className="flex w-[264px] flex-shrink-0 items-center gap-2">{value}</div>
       <div className="flex w-[320px] flex-shrink-0 items-center gap-2">
-        <ToggleChip
-          label="Agent Visible"
-          selected={visible}
-          onToggle={handleVisibleToggle}
-          disabled={gatedOff}
-        />
-        <ToggleChip
-          label="Agent Editable"
-          selected={governance === "editable"}
-          onToggle={() => onGovernanceChange(governance === "editable" ? "locked" : "editable")}
-          disabled={editableDisabled}
-        />
+        {hasAgentAccess ? (
+          <>
+            <ToggleChip
+              label="Agent Visible"
+              selected={visible}
+              onToggle={handleVisibleToggle}
+              disabled={gatedOff}
+            />
+            <ToggleChip
+              label="Agent Editable"
+              selected={governance === "editable"}
+              onToggle={() => onGovernanceChange!(governance === "editable" ? "locked" : "editable")}
+              disabled={editableDisabled}
+            />
+          </>
+        ) : (
+          agentAccessFallback
+        )}
       </div>
     </div>
   );
@@ -695,6 +709,33 @@ export function DisplayKeyboardTab() {
         here and not shown in this mock.
       </p>
     </>
+  );
+}
+
+/* ── Sub-tab 4: Report an Issue ──
+ * Just one row, and unlike every other row on this page it has no
+ * Component Setting or Agent Access question at all — there's no value
+ * to configure and no agent-facing visibility/edit decision to make
+ * about whether the capability exists, only whether it exists. Both
+ * columns show "N/A" (via `value` and `agentAccessFallback`) rather
+ * than sitting blank, so it's clear the column was considered and
+ * intentionally has nothing, not just missed. */
+const NOT_APPLICABLE = <span className="lyra-body-sm text-lyra-fg-secondary">N/A</span>;
+
+export function ReportAnIssueTab() {
+  const [reportIssueEnabled, setReportIssueEnabled] = useState(true);
+
+  return (
+    <div className="rounded-b-lyra-sm border border-lyra-border-subtle">
+      <GovernanceTableHeader />
+      <GovernanceRow
+        label="Report an Issue"
+        componentEnabled={reportIssueEnabled}
+        onComponentEnabledChange={setReportIssueEnabled}
+        value={NOT_APPLICABLE}
+        agentAccessFallback={NOT_APPLICABLE}
+      />
+    </div>
   );
 }
 
