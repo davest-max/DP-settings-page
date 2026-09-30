@@ -9,6 +9,7 @@ import {
   TabList,
   Tab,
   TabPanel,
+  TreeMenu,
   Switch,
   Select,
   Checkbox,
@@ -1302,48 +1303,53 @@ export function CreateDesktopProfilePage({
            * components from settings-page-tile.tsx rather than
            * duplicating them, so the two stay in sync.
            *
-           * A peer top-level tab next to General/Assigned Teams now, not
-           * a page drilled into from a row inside General — no
-           * breadcrumb needed, same as those other two tabs' panels. */}
-          <TabPanel active={tab === "settings-page"} className="flex flex-col gap-4 px-6 py-6">
-            <TabList>
-              <Tab
-                active={settingsPageInnerTab === "login-voice"}
-                onClick={() => setSettingsPageInnerTab("login-voice")}
-              >
-                Login & Voice Preferences
-              </Tab>
-              <Tab
-                active={settingsPageInnerTab === "av-notifications"}
-                onClick={() => setSettingsPageInnerTab("av-notifications")}
-              >
-                A/V Notifications
-              </Tab>
-              <Tab
-                active={settingsPageInnerTab === "display-keyboard"}
-                onClick={() => setSettingsPageInnerTab("display-keyboard")}
-              >
-                Display & Keyboard
-              </Tab>
-              <Tab
-                active={settingsPageInnerTab === "report-issue"}
-                onClick={() => setSettingsPageInnerTab("report-issue")}
-              >
-                Report an Issue
-              </Tab>
-            </TabList>
-            <TabPanel active={settingsPageInnerTab === "login-voice"}>
-              <LoginVoicePreferencesTab />
-            </TabPanel>
-            <TabPanel active={settingsPageInnerTab === "av-notifications"}>
-              <AVNotificationsTab />
-            </TabPanel>
-            <TabPanel active={settingsPageInnerTab === "display-keyboard"}>
-              <DisplayKeyboardTab />
-            </TabPanel>
-            <TabPanel active={settingsPageInnerTab === "report-issue"}>
-              <ReportAnIssueTab />
-            </TabPanel>
+           * A peer top-level tab next to General/Assigned Teams, not a
+           * page drilled into from a row inside General. Its own 4
+           * sections use a vertical `TreeMenu` sub-nav rather than a
+           * second horizontal `TabList` — tabs stacked on tabs read as
+           * two competing levels of the same navigation; a sidebar
+           * running perpendicular to the top tab row reads unambiguously
+           * as "inside" this one tab instead. */}
+          <TabPanel active={tab === "settings-page"} className="flex gap-6 px-6 py-6">
+            <TreeMenu
+              className="w-[240px] flex-shrink-0"
+              items={[
+                {
+                  label: "Login & Voice Preferences",
+                  active: settingsPageInnerTab === "login-voice",
+                  onClick: () => setSettingsPageInnerTab("login-voice"),
+                },
+                {
+                  label: "A/V Notifications",
+                  active: settingsPageInnerTab === "av-notifications",
+                  onClick: () => setSettingsPageInnerTab("av-notifications"),
+                },
+                {
+                  label: "Display & Keyboard",
+                  active: settingsPageInnerTab === "display-keyboard",
+                  onClick: () => setSettingsPageInnerTab("display-keyboard"),
+                },
+                {
+                  label: "Report an Issue",
+                  active: settingsPageInnerTab === "report-issue",
+                  onClick: () => setSettingsPageInnerTab("report-issue"),
+                },
+              ]}
+            />
+            <div className="min-w-0 flex-1">
+              <TabPanel active={settingsPageInnerTab === "login-voice"}>
+                <LoginVoicePreferencesTab />
+              </TabPanel>
+              <TabPanel active={settingsPageInnerTab === "av-notifications"}>
+                <AVNotificationsTab />
+              </TabPanel>
+              <TabPanel active={settingsPageInnerTab === "display-keyboard"}>
+                <DisplayKeyboardTab />
+              </TabPanel>
+              <TabPanel active={settingsPageInnerTab === "report-issue"}>
+                <ReportAnIssueTab />
+              </TabPanel>
+            </div>
           </TabPanel>
             </div>
           </AdminShell>
