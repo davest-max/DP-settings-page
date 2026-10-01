@@ -54,30 +54,30 @@ const IDEAS: IdeaEntry[] = [
   },
   {
     date: "Sep 29 · 5:08 PM",
-    title: "A second tab row, flagged",
-    caption: (
-      <>
-        Promoted to a top-level tab next to <code>General</code> and{" "}
-        <code>Assigned Teams</code> — but its four areas still switched via
-        a second horizontal tab row sitting directly underneath, two
-        stacked levels of tabs called out for a redesign.
-      </>
-    ),
-    image: top_level_sidebar,
-    alt: "Agent Settings Page as a top-level tab, with a second horizontal tab row for its four areas directly below it.",
-  },
-  {
-    date: "Sep 30 · 1:44 PM",
     title: "Vertical sidebar instead of a second tab row",
     caption: (
       <>
-        Same top-level tab, with the four areas switched from a vertical
-        sidebar running down the left instead — perpendicular to the top
+        Promoted to a top-level tab next to <code>General</code> and{" "}
+        <code>Assigned Teams</code>, with the four areas switched from a
+        vertical sidebar running down the left — perpendicular to the top
         tab row rather than stacked under it.
       </>
     ),
+    image: top_level_sidebar,
+    alt: "Agent Settings Page as a top-level tab with a vertical sidebar listing its four areas, A/V Notifications selected.",
+  },
+  {
+    date: "Sep 30 · 1:44 PM",
+    title: "A second tab row, flagged",
+    caption: (
+      <>
+        Same top-level tab, but its four areas still switched via a second
+        horizontal tab row sitting directly underneath — two stacked
+        levels of tabs called out for a redesign.
+      </>
+    ),
     image: stacked_tabs_flagged,
-    alt: "Agent Settings Page as a top-level tab with a vertical sidebar listing its four areas, Login and Voice Preferences selected.",
+    alt: "Agent Settings Page as a top-level tab with a second horizontal tab row for its four areas directly below it, Login and Voice Preferences highlighted.",
   },
 ];
 
