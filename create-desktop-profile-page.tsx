@@ -9,7 +9,6 @@ import {
   TabList,
   Tab,
   TabPanel,
-  TreeMenu,
   Switch,
   Select,
   Checkbox,
@@ -682,7 +681,7 @@ interface CreateDesktopProfilePageProps {
   navItems?: TreeMenuItem[];
   /** Which outer tab to land on — used to deep-link here (e.g. from the Review Queue) straight to a specific surface instead of always starting on Settings. */
   initialTab?: "settings" | "teams" | "settings-page";
-  /** Which Agent Settings Page inner tab to land on, when `initialTab` is "settings-page". */
+  /** Which Agent Settings Page section to scroll to on mount, when `initialTab` is "settings-page" — every section is always on the page, so this scrolls rather than switches. */
   initialSettingsPageInnerTab?: "login-voice" | "av-notifications" | "display-keyboard" | "report-issue";
   /** Scrolls to and highlights one of the 3 AI-flagged rows on mount — the same jump the in-page review banner's chips perform, reachable from outside the page (e.g. the Review Queue). Only meaningful in "create" mode, where those rows exist. */
   initialFocusItem?: ReviewItemKey;
@@ -710,15 +709,12 @@ export function CreateDesktopProfilePage({
   onTeamsChange,
   navItems = NAV_ITEMS,
   initialTab = "settings",
-  initialSettingsPageInnerTab = "login-voice",
+  initialSettingsPageInnerTab,
   initialFocusItem,
   showAiDraftPreview = false,
   onOpenAssistant,
 }: CreateDesktopProfilePageProps) {
   const [tab, setTab] = useState<"settings" | "teams" | "settings-page">(initialTab);
-  const [settingsPageInnerTab, setSettingsPageInnerTab] = useState<
-    "login-voice" | "av-notifications" | "display-keyboard" | "report-issue"
-  >(initialSettingsPageInnerTab);
 
   /* Defaults reflect this build's one demo scenario — an AI agent
    * drafting a profile for a newly-uploaded new-hire cohort (see
@@ -883,6 +879,37 @@ export function CreateDesktopProfilePage({
     reviewItemRefs[pendingReviewJump].current?.scrollIntoView({ behavior: "smooth", block: "center" });
     setPendingReviewJump(null);
   }, [pendingReviewJump, tab]);
+
+  /* ── Agent Settings Page deep link ──
+   * All 4 sections are always on the page now (see the "settings-page"
+   * `TabPanel` below) — a caller naming one via
+   * `initialSettingsPageInnerTab` gets scrolled to it rather than
+   * switched to it, same mechanics as `pendingReviewJump` above. */
+  const [pendingSettingsPageJump, setPendingSettingsPageJump] = useState(
+    initialSettingsPageInnerTab ?? null
+  );
+  const loginVoiceSectionRef = useRef<HTMLDivElement>(null);
+  const avNotificationsSectionRef = useRef<HTMLDivElement>(null);
+  const displayKeyboardSectionRef = useRef<HTMLDivElement>(null);
+  const reportIssueSectionRef = useRef<HTMLDivElement>(null);
+  const settingsPageSectionRefs: Record<
+    NonNullable<typeof initialSettingsPageInnerTab>,
+    React.RefObject<HTMLDivElement | null>
+  > = {
+    "login-voice": loginVoiceSectionRef,
+    "av-notifications": avNotificationsSectionRef,
+    "display-keyboard": displayKeyboardSectionRef,
+    "report-issue": reportIssueSectionRef,
+  };
+
+  useEffect(() => {
+    if (!pendingSettingsPageJump || tab !== "settings-page") return;
+    settingsPageSectionRefs[pendingSettingsPageJump].current?.scrollIntoView({
+      behavior: "smooth",
+      block: "start",
+    });
+    setPendingSettingsPageJump(null);
+  }, [pendingSettingsPageJump, tab]);
 
   /* ── Assigned Teams (edit mode only) ── */
   const [assignedTeamIds, setAssignedTeamIds] = useState<string[]>(initialAssignedTeamIds);
@@ -1303,53 +1330,31 @@ export function CreateDesktopProfilePage({
            * components from settings-page-tile.tsx rather than
            * duplicating them, so the two stay in sync.
            *
-           * A peer top-level tab next to General/Assigned Teams, not a
-           * page drilled into from a row inside General. Its own 4
-           * sections use a vertical `TreeMenu` sub-nav rather than a
-           * second horizontal `TabList` — tabs stacked on tabs read as
-           * two competing levels of the same navigation; a sidebar
-           * running perpendicular to the top tab row reads unambiguously
-           * as "inside" this one tab instead. */}
-          <TabPanel active={tab === "settings-page"} className="flex gap-6 px-6 py-6">
-            <TreeMenu
-              className="w-[240px] flex-shrink-0"
-              items={[
-                {
-                  label: "Login & Voice Preferences",
-                  active: settingsPageInnerTab === "login-voice",
-                  onClick: () => setSettingsPageInnerTab("login-voice"),
-                },
-                {
-                  label: "A/V Notifications",
-                  active: settingsPageInnerTab === "av-notifications",
-                  onClick: () => setSettingsPageInnerTab("av-notifications"),
-                },
-                {
-                  label: "Display & Keyboard",
-                  active: settingsPageInnerTab === "display-keyboard",
-                  onClick: () => setSettingsPageInnerTab("display-keyboard"),
-                },
-                {
-                  label: "Report an Issue",
-                  active: settingsPageInnerTab === "report-issue",
-                  onClick: () => setSettingsPageInnerTab("report-issue"),
-                },
-              ]}
-            />
-            <div className="min-w-0 flex-1">
-              <TabPanel active={settingsPageInnerTab === "login-voice"}>
-                <LoginVoicePreferencesTab />
-              </TabPanel>
-              <TabPanel active={settingsPageInnerTab === "av-notifications"}>
-                <AVNotificationsTab />
-              </TabPanel>
-              <TabPanel active={settingsPageInnerTab === "display-keyboard"}>
-                <DisplayKeyboardTab />
-              </TabPanel>
-              <TabPanel active={settingsPageInnerTab === "report-issue"}>
-                <ReportAnIssueTab />
-              </TabPanel>
-            </div>
+           * A peer top-level tab next to General/Assigned Teams. Its own
+           * 4 areas are stacked sections (`SectionHeader` + content),
+           * same pattern as General's own App Visibility/Menu
+           * Navigation/Additional Settings — not a second tab bar or
+           * sub-nav, so there's only ever one level of tab-switching on
+           * this page. A deep link naming one section (see
+           * `initialSettingsPageInnerTab`) scrolls to it on mount rather
+           * than switching to it, since every section is always visible. */}
+          <TabPanel active={tab === "settings-page"} className="flex flex-col gap-6 px-6 py-6">
+            <section ref={loginVoiceSectionRef}>
+              <SectionHeader>Login & Voice Preferences</SectionHeader>
+              <LoginVoicePreferencesTab />
+            </section>
+            <section ref={avNotificationsSectionRef}>
+              <SectionHeader>A/V Notifications</SectionHeader>
+              <AVNotificationsTab />
+            </section>
+            <section ref={displayKeyboardSectionRef}>
+              <SectionHeader>Display & Keyboard</SectionHeader>
+              <DisplayKeyboardTab />
+            </section>
+            <section ref={reportIssueSectionRef}>
+              <SectionHeader>Report an Issue</SectionHeader>
+              <ReportAnIssueTab />
+            </section>
           </TabPanel>
             </div>
           </AdminShell>
