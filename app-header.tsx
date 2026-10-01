@@ -1,17 +1,28 @@
 import * as React from "react";
 import { useState, useRef, useEffect } from "react";
-import { CircleHelp, LayoutGrid, Bell } from "lucide-react";
+import { CircleHelp, LayoutGrid, Bell, Presentation } from "lucide-react";
 import appIcon from "./assets/app-icon.svg";
 import {
   AppHeader,
   AppName,
   ActionIconButton,
+  Button,
   ProfileMenu,
   defaultProfileMenuGroups,
   AppMenu,
   CXoneLogo,
   type AppMenuGroup,
 } from "../lyra-ui/src";
+
+/** Dave's shared gallery of dated screen grabs showing how this page's
+ * layout has changed across the build — see "DP Profile Iterations" in
+ * the project's own screen-grab folder. Opened from the header so it's
+ * one click away while demoing, without leaving this tab.
+ *
+ * A full labeled `Button` rather than an icon in the usual action-icon
+ * row (Help/Apps/Notifications) on purpose — this one's meant to catch
+ * a demo audience's eye, not blend in as plumbing alongside them. */
+const ITERATIONS_GALLERY_URL = "https://claude.ai/artifact/2mz9Jhu4RA7kh7EfBXBscw";
 
 /**
  * Outer app-shell header — migrated from the `lyra-ux-templates-main`
@@ -83,6 +94,15 @@ export function AppShellHeader() {
       }
       actions={
         <>
+          <Button
+            variant="success"
+            size="lg"
+            className="mr-1"
+            onClick={() => window.open(ITERATIONS_GALLERY_URL, "_blank", "noopener,noreferrer")}
+          >
+            <Presentation className="h-4 w-4" strokeWidth={2} aria-hidden="true" />
+            Additional Ideas
+          </Button>
           <ActionIconButton size="xl" title="Help">
             <CircleHelp className="h-5 w-5" strokeWidth={1.5} />
           </ActionIconButton>
