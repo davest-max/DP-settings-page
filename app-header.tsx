@@ -13,16 +13,17 @@ import {
   CXoneLogo,
   type AppMenuGroup,
 } from "../lyra-ui/src";
+import { AdditionalIdeasPanel } from "./additional-ideas-panel";
 
-/** Dave's shared gallery of dated screen grabs showing how this page's
- * layout has changed across the build — see "DP Profile Iterations" in
- * the project's own screen-grab folder. Opened from the header so it's
- * one click away while demoing, without leaving this tab.
+/** Dated screen grabs of how this page's layout has changed across the
+ * build (see `additional-ideas-panel.tsx`), shown in an in-page modal
+ * rather than a link to an external gallery — Dave wants a demo viewer
+ * to stay on this same deployed URL the whole time, not get handed off
+ * elsewhere.
  *
  * A full labeled `Button` rather than an icon in the usual action-icon
  * row (Help/Apps/Notifications) on purpose — this one's meant to catch
  * a demo audience's eye, not blend in as plumbing alongside them. */
-const ITERATIONS_GALLERY_URL = "https://claude.ai/artifact/2mz9Jhu4RA7kh7EfBXBscw";
 
 /**
  * Outer app-shell header — migrated from the `lyra-ux-templates-main`
@@ -41,6 +42,7 @@ const ITERATIONS_GALLERY_URL = "https://claude.ai/artifact/2mz9Jhu4RA7kh7EfBXBsc
  */
 export function AppShellHeader() {
   const [menuOpen, setMenuOpen] = useState(false);
+  const [ideasOpen, setIdeasOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
 
@@ -76,6 +78,7 @@ export function AppShellHeader() {
   }, [menuOpen]);
 
   return (
+    <>
     <AppHeader
       appName={
         <div className="relative">
@@ -98,7 +101,7 @@ export function AppShellHeader() {
             variant="success"
             size="lg"
             className="mr-1"
-            onClick={() => window.open(ITERATIONS_GALLERY_URL, "_blank", "noopener,noreferrer")}
+            onClick={() => setIdeasOpen(true)}
           >
             <Presentation className="h-4 w-4" strokeWidth={2} aria-hidden="true" />
             Additional Ideas
@@ -117,5 +120,7 @@ export function AppShellHeader() {
       }
       className="bg-lyra-bg-surface-shell"
     />
+    <AdditionalIdeasPanel open={ideasOpen} onClose={() => setIdeasOpen(false)} />
+    </>
   );
 }
